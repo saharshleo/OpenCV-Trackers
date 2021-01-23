@@ -18,14 +18,14 @@ print('{} * {}'.format(img.shape[0],img.shape[1]))
 
 img_ii = integral_image(img)
 print(img_ii)
-
+coord = (np.array([[(0, 0), (0, 0)], [(0, 1), (0, 1)], [(0, 2), (0, 2)]]))
 feature_coord, feature_type = haar_like_feature_coord(width=img.shape[1],height=img.shape[0],feature_type="type-3-x")
 print('COORDINATES OF EACH FEATURE')
-print((feature_coord))
+print(type(feature_coord))
 print(feature_type)
 print(len(feature_type))
 print('VALUE OF IMAGE AFTER APPLYING THE FEATURES')
-feature = haar_like_feature(img_ii, 0, 0, img.shape[1],img.shape[0] , "type-3-x")
+feature = haar_like_feature(img_ii, 0, 0, img.shape[1],img.shape[0] , feature_type[0],feature_coord=feature_coord[0])
 print(feature)
 print(len(feature))
 
