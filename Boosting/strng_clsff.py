@@ -59,12 +59,10 @@ def one_feature_selector(weak_classifier, index, feature_pool):
     # Update expected_values list accordingly during training
 
 
-# num_features = total no. of features in feature pool
-def all_classifier_selector(n, m, num_features, strong_classifier, feature_pool, weight_neg,
-                             weight_pos):
+def get_strong_classifier(n, m, strong_classifier, feature_pool):
     for i in range(n):
         for j in range(m):
-            num1 = random.randrange(num_features)
+            num1 = random.randrange(len(feature_pool))
             if(feature_pool[num1]['selector'] == -1):
                 strong_classifier[i][j] = feature_pool[num1]['value']
             else:
