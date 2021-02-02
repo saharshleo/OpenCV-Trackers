@@ -167,3 +167,5 @@ class FeatureHaar:
 
 # f1  = FeatureHaar()
 # f1.generateRandomFeature(img_ii,img.shape[0],img.shape[1])
+
+
