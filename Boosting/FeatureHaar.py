@@ -46,7 +46,14 @@ class FeatureHaar:
         self.value = 0
         self.location = []
         self.selector=-1
-         
+        self.value_at_sample_pixels=[] 
+        self.mu_plus = 0
+        self.mu_minus = 0
+        self.threshold = 0
+        self.polarity = 0
+        self.clf_out=[]
+        self.p=0
+        self.n=0
         
     def generateRandomFeature(self,integralImage,height,width):
         
@@ -143,9 +150,57 @@ class FeatureHaar:
                                  [position["row"]+baseDim["height"],position["col"],baseDim["height"],baseDim["width"]],
                                  [position["row"]+baseDim["height"],position["col"]+baseDim["width"],baseDim["height"],baseDim["width"]]]
                 valid = True
+
+    #calculate the coordinates of the respective feature type given the starting cordinate x,y
+    def get_feature_coord(self,x,y):
+        base_height = self.location[0][2]   
+        base_width = self.location[0][3]
+        feature_cord = []
+        if self.featureType == 'type-2-x':
+            feature_cord = [[y,x,base_height,base_width],
+                            [y,x+base_width]]
+        elif self.featureType == 'type-2-y':
+            feature_cord = [[y,x,base_height,base_width],
+                            [y+base_height,x]]
+        elif self.featureType == 'type-3-x':
+            feature_cord = [[y,x,base_height,base_width],
+                            [y,x+base_width],
+                            [y,x+2*base_width]]
+        elif self.featureType == 'type-3-y':
+            feature_cord = [[y,x,base_height,base_width],
+                            [y+base_height,x],
+                            [y+2*base_height,x]]
+        elif self.featureType == 'type-4':
+            feature_cord = [[y,x,base_height,base_width],
+                            [y,x+base_width],
+                            [y+base_height,x+base_width],
+                            [y+base_height,x]]
+
+        return feature_cord
+
+    # evaluate a feature at a particular pixel
+    def evaluate_feature_at(self,ii_image,x,y):
+        feature_cord = self.get_feature_coord(x,y)
+        value = haar_feature(ii_image,self.featureType,feature_cord)
+        return value
             
-            #calculating the value of haar like feature
-            self.value = haar_feature(integralImage,self.featureType,self.location)
+    # check if a feature can be applied at a particular pixel 
+    def validate_feature_at(self,x,y,search_region):
+        n = int(self.featureType.split('-')[1])
+        feature_cord = self.get_feature_coord(x,y)
+        # print(self.featureType)
+        # print(feature_cord)
+        if n == 4:
+            end_x = feature_cord[n-2][1]+feature_cord[0][3]-1
+            end_y = feature_cord[n-2][0]+feature_cord[0][2]-1
+        else:
+            end_x = feature_cord[n-1][1]+feature_cord[0][3]-1
+            end_y = feature_cord[n-1][0]+feature_cord[0][2]-1
+        # print("endx: {} endy: {}".format(end_x,end_y))
+        # print(search_region)
+        if end_x <= search_region[2] and end_y <= search_region[3]:
+            return True
+        return False 
 
 
 #<------------------ Example Code ------------------------------>
@@ -167,5 +222,8 @@ class FeatureHaar:
 
 # f1  = FeatureHaar()
 # f1.generateRandomFeature(img_ii,img.shape[0],img.shape[1])
+# print(f1.featureType)
+# print(f1.location)
+# print(f1.evaluate_feature_at(img_ii,0,0))
 
 
