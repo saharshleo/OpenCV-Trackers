@@ -213,7 +213,23 @@ class Boosting:
             Boosting.alphas_for_strong_clf.append(alpha)
 
     def get_confidence_map(self):
-        pass
+        self.confidence_map = [] # Stores 2 dimensional confidence map for search_region.
+        confidence_map_row = [] # Stores confidence map values for one entire row
+        classification_result = 0 # Will store sum of amount of says of positively classifying weak classifiers.
+        threshold = 1.9 # Not sure about the threshold to be given here, hence left this here. 
+        for row in range(self.search_region[1],self.search_region[3]+1):
+            for col in range(self.search_region[0],self.search_region[2]+1):
+                for count,feature in enumerate(Boosting.strong_classifier_index):
+                    if(self.features[feature].validate_feature_at(col, row, self.search_region)):
+                        val = self.features[feature].evaluate_feature_at(Boosting.ii_search_region,col-self.search_region[0],row-self.search_region[1])
+                        if(val > self.features[feature].threshold):
+                            classification_result += Boosting.alphas_for_strong_clf[count]
+                if(classification_result > threshold):
+                    confidence_map_row.append(1)
+                else:
+                    confidence_map_row.append(-1)
+            self.confidence_map.append(confidence_map_row)
+
 
     def get_bbox(self):
         pass
