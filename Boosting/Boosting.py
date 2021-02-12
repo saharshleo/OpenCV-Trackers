@@ -228,6 +228,7 @@ class Boosting:
                     confidence_map_row.append(1)
                 else:
                     confidence_map_row.append(-1)
+                classification_result = 0 # Making this variable ready for reuse.
             self.confidence_map.append(confidence_map_row)
 
 
