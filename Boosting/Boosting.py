@@ -228,11 +228,8 @@ class Boosting:
         self.confidence_map = [] # Stores 2 dimensional confidence map for search_region.
         confidence_map_row = [] # Stores confidence map values for one entire row
         classification_result = 0 # Will store sum of amount of says of positively classifying weak classifiers.
-<<<<<<< HEAD
         self.positive_coordinates=[]
         threshold = 0.5*sum(Boosting.alphas_for_strong_clf) # Not sure about the threshold to be given here, hence left this here. 
-=======
->>>>>>> 3c8018a7440187d3052b03f9f6955197a6322155
         for row in range(self.search_region[1],self.search_region[3]+1):
             for col in range(self.search_region[0],self.search_region[2]+1):
                 classification_result=0
@@ -241,17 +238,12 @@ class Boosting:
                         val = self.features[feature].evaluate_feature_at(Boosting.ii_search_region,col-self.search_region[0],row-self.search_region[1])
                         if(val > self.features[feature].threshold):
                             classification_result += Boosting.alphas_for_strong_clf[count]
-<<<<<<< HEAD
                 if(classification_result > threshold):
                     confidence_map_row.append(1)
                     self.positive_coordinates.append([row,col])
                 else:
                     confidence_map_row.append(-1)
                 confidence_map_row.append(classification_result)
-=======
-                confidence_map_row.append(classification_result)
-                classification_result = 0 # Making this variable ready for reuse.
->>>>>>> 3c8018a7440187d3052b03f9f6955197a6322155
             self.confidence_map.append(confidence_map_row)
 
     def get_cluster_center(self):
