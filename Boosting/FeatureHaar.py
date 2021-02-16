@@ -20,7 +20,7 @@ def haar_feature(img_integral,feature_type,feature_coord):
     # final value of each feature
     haar_feature_val=0
     for i in range(n):
-        # coordinate of top left point of a box f a featu
+        # coordinate of top left point of a box of a feature
         coord_list=[feature_coord[i][0],feature_coord[i][1]]
         # corresponding points in the padded integral image...not directly mapped
         # reference https://datasciencechalktalk.com/2019/07/16/haar-cascade-integral-image/

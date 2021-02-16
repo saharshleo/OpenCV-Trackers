@@ -2,6 +2,9 @@ import numpy as np
 import random
 from FeatureHaar import*
 from skimage.transform import integral_image
+from sklearn.cluster import KMeans
+import cv2 as cv2
+
 
 class Boosting:
     weights_of_sample=[]
@@ -29,7 +32,14 @@ class Boosting:
         self.roi_image = frame[int(self.roi[1]):int(self.roi[3])+1,int(self.roi[0]):int(self.roi[2])+1] #getting roi image from roi
         Boosting.ii_image = integral_image(self.roi_image)  #integral image of roi
         self.search_region=[]       #starting and ending cordinates of the search region
-    
+        self.positive_coordinates=[]
+
+    def update_frame(self,new_frame):
+        self.frame = new_frame
+
+    def update_roi(self,new_roi):
+        self.roi = new_roi
+
     #get search region cordinates based on the roi cordinates provided
     def get_search_region(self):
         roi_height = self.roi_image.shape[0]
@@ -50,6 +60,8 @@ class Boosting:
         #finding the ending y of the search region, max height of the image if out of bound
         self.search_region.append(int(self.roi[3]+roi_height/2))
         self.search_region[3] = self.frame.shape[0]-1 if self.search_region[3]>=self.frame.shape[0] else self.search_region[3]
+
+        self.set_ii_searchregion()
 
     # extract and find the integral image of search region
     def set_ii_searchregion(self):
@@ -216,9 +228,11 @@ class Boosting:
         self.confidence_map = [] # Stores 2 dimensional confidence map for search_region.
         confidence_map_row = [] # Stores confidence map values for one entire row
         classification_result = 0 # Will store sum of amount of says of positively classifying weak classifiers.
-        threshold = 1.9 # Not sure about the threshold to be given here, hence left this here. 
+        self.positive_coordinates=[]
+        threshold = 0.5*sum(Boosting.alphas_for_strong_clf) # Not sure about the threshold to be given here, hence left this here. 
         for row in range(self.search_region[1],self.search_region[3]+1):
             for col in range(self.search_region[0],self.search_region[2]+1):
+                classification_result=0
                 for count,feature in enumerate(Boosting.strong_classifier_index):
                     if(self.features[feature].validate_feature_at(col, row, self.search_region)):
                         val = self.features[feature].evaluate_feature_at(Boosting.ii_search_region,col-self.search_region[0],row-self.search_region[1])
@@ -226,13 +240,28 @@ class Boosting:
                             classification_result += Boosting.alphas_for_strong_clf[count]
                 if(classification_result > threshold):
                     confidence_map_row.append(1)
+                    self.positive_coordinates.append([row,col])
                 else:
                     confidence_map_row.append(-1)
+                confidence_map_row.append(classification_result)
             self.confidence_map.append(confidence_map_row)
+
+    def get_cluster_center(self):
+        kmeans = KMeans(n_clusters=1,random_state=0).fit(np.array(self.positive_coordinates))
+        center = kmeans.cluster_centers_
+        print(center)
+        return center   
 
 
     def get_bbox(self):
-        pass
+        center = self.get_cluster_center()
+        height = self.roi_image.shape[0]
+        width = self.roi_image.shape[1]
+        print(center[0][1]-(width/2),int(center[0][0]-(height/2)),int(center[0][1]+(width/2)),int(center[0][0]+(height/2)))
+        # cv2.rectangle(self.frame,(int(center[0][1]-(width/2)),int(center[0][0]-(height/2))),(int(center[0][1]+(width/2)),int(center[0][0]+(height/2))),(0,255,0),2)
+        # cv2.imshow("new bb",self.frame)
+        return [int(center[0][1]-(width/2)),int(center[0][0]-(height/2)),int(center[0][1]+(width/2)),int(center[0][0]+(height/2))]
+
 
     def update_strong_classifier(self):
         pass
