@@ -1,40 +1,6 @@
 import random
 import math
-from skimage.transform import integral_image
 import numpy as np
-
-def haar_feature(img_integral,feature_type,feature_coord):
-    # padding the integral image to the left and above
-    result=np.zeros((img_integral.shape[0]+1,img_integral.shape[1]+1))
-    result[1:img_integral.shape[0]+1,1:img_integral.shape[1]+1] = img_integral
-    img_integral=result
-    # print('PADDED IMAGE INTEGRAL')
-    # print(img_integral)
-    # getting width and height of feature from feature_coord
-    width=feature_coord[0][3]-1
-    height=feature_coord[0][2]-1
-    # splitting feature to access the numeral in the feature e.g.- 3 in type-3-y for limiting the iterations 
-    n=int((feature_type.split('-'))[1])
-    # storing value of value of each box of a single feature eg- of 3 boxes in type-3-x
-    list_of_val_of_each_rec=[]
-    # final value of each feature
-    haar_feature_val=0
-    for i in range(n):
-        # coordinate of top left point of a box f a featu
-        coord_list=[feature_coord[i][0],feature_coord[i][1]]
-        # corresponding points in the padded integral image...not directly mapped
-        # reference https://datasciencechalktalk.com/2019/07/16/haar-cascade-integral-image/
-        A=img_integral[coord_list[0]][coord_list[1]]
-        B=img_integral[coord_list[0]][coord_list[1]+width+1]    
-        C=img_integral[coord_list[0]+height+1][coord_list[1]]
-        D=img_integral[coord_list[0]+height+1][coord_list[1]+width+1]  
-        #print("A{} B{} C{} D{}".format(A,B,C,D))          
-        rect_val=A+D-B-C
-        list_of_val_of_each_rec.append(rect_val)
-        # alternately add or subtract value of box of a feature
-        haar_feature_val+=(math.pow(-1,i)*rect_val)
-    #print(list_of_val_of_each_rec)
-    return haar_feature_val
 
 
 class FeatureHaar:
@@ -45,13 +11,13 @@ class FeatureHaar:
     def __init__(self):
         self.value = 0
         self.location = []
-        self.selector=-1
+        self.selector = -1
          
         
-    def generateRandomFeature(self,integralImage,height,width):
+    def generateRandomFeature(self, height, width):
         
         valid = False
-        minArea =1 #minimum area of the haar like feature
+        minArea = 1 # minimum area of the haar like feature
 
         while not valid:
             
@@ -145,27 +111,38 @@ class FeatureHaar:
                 valid = True
             
             #calculating the value of haar like feature
-            self.value = haar_feature(integralImage,self.featureType,self.location)
+            # self.value = haar_feature(integralImage,self.featureType,self.location)
 
 
-#<------------------ Example Code ------------------------------>
-
-# img = np.array([[ 1 ,2  ,3  ,4  ,5  ,6],
-#  [ 2  ,4  ,6  ,8 ,10 ,12],
-#  [ 3  ,6  ,9 ,12 ,15 ,18],
-#  [ 4  ,8 ,12 ,16 ,20 ,24],
-#  [ 5 ,10 ,15 ,20 ,25 ,30],
-#  [ 6 ,12 ,18 ,24 ,30 ,36]])
-# print('IMAGE:')
-# print(img)
-
-# print('IMAGE DIMENSIONS')
-# print('{} * {}'.format(img.shape[0],img.shape[1]))
-
-# img_ii = integral_image(img)
-# print(img_ii)
-
-# f1  = FeatureHaar()
-# f1.generateRandomFeature(img_ii,img.shape[0],img.shape[1])
-
-
+def compute_haar_feature(img_integral, feature_type, feature_coord):
+    # padding the integral image to the left and above
+    result=np.zeros((img_integral.shape[0]+1,img_integral.shape[1]+1))
+    result[1:img_integral.shape[0]+1,1:img_integral.shape[1]+1] = img_integral
+    img_integral=result
+    # print('PADDED IMAGE INTEGRAL')
+    # print(img_integral)
+    # getting width and height of feature from feature_coord
+    width=feature_coord[0][3]-1
+    height=feature_coord[0][2]-1
+    # splitting feature to access the numeral in the feature e.g.- 3 in type-3-y for limiting the iterations 
+    n=int((feature_type.split('-'))[1])
+    # storing value of value of each box of a single feature eg- of 3 boxes in type-3-x
+    list_of_val_of_each_rec=[]
+    # final value of each feature
+    haar_feature_val=0
+    for i in range(n):
+        # coordinate of top left point of a box f a featu
+        coord_list=[feature_coord[i][0],feature_coord[i][1]]
+        # corresponding points in the padded integral image...not directly mapped
+        # reference https://datasciencechalktalk.com/2019/07/16/haar-cascade-integral-image/
+        A=img_integral[coord_list[0]][coord_list[1]]
+        B=img_integral[coord_list[0]][coord_list[1]+width+1]    
+        C=img_integral[coord_list[0]+height+1][coord_list[1]]
+        D=img_integral[coord_list[0]+height+1][coord_list[1]+width+1]  
+        #print("A{} B{} C{} D{}".format(A,B,C,D))          
+        rect_val=A+D-B-C
+        list_of_val_of_each_rec.append(rect_val)
+        # alternately add or subtract value of box of a feature
+        haar_feature_val+=(math.pow(-1,i)*rect_val)
+    #print(list_of_val_of_each_rec)
+    return haar_feature_val
