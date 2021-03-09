@@ -70,12 +70,13 @@ if __name__ == '__main__':
             cv2.imshow("frame", frame)
             # result.write(frame)
 
-            key = cv2.waitKey(0)
+            key = cv2.waitKey(1)
             if key & 0xFF == ord('q'):
                 break
 
             # Update strong classifier
-            break
+            bo.update_strong_classifier()
+            # break
 
         else:   # if frame not read
             break     

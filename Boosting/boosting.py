@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import random
 from skimage.transform import integral_image
+import multiprocessing
 from multiprocessing import Pool
 
 # Helper class
@@ -35,6 +36,14 @@ class Boosting:
         h = 2*self.object_roi[3]
 
         self.blue_roi = [tl_x, tl_y, w, h]
+
+        # Debugging
+        # c = self.frame.copy()
+        # cv2.rectangle(c, (tl_x, tl_y), (tl_x+w, tl_y+h), (0, 255, 0), 2)
+        # cv2.imshow("frame", c)
+        # key = cv2.waitKey(0)
+        # if key & 0xFF == ord('q'):
+        #     cv2.destroyAllWindows()
 
     
     def build_features(self):
@@ -135,7 +144,7 @@ class Boosting:
 
 
     def get_strong_classifier(self):
-        
+
         for sel_id in self.selector_pool:
             self.weights = self.weights / np.linalg.norm(self.weights)
 
@@ -171,7 +180,7 @@ class Boosting:
             self.strong_classifier[sel_id]['feature_id'] = min_feature_id
 
             min_error = self.feature_info[min_feature_id]['error']
-            if min_error > 0.5 or min_error == 0:
+            if min_error == 0:
                 self.strong_classifier[sel_id]['alpha'] = 0
                 continue
 
@@ -218,37 +227,61 @@ class Boosting:
     '''
 
     def get_confidence_map(self):
-        self.confidence_map = np.zeros((self.blue_roi[2], self.blue_roi[3]), dtype=np.float)
-
         w, h = self.blue_roi[2], self.blue_roi[3]
 
+        self.confidence_map = np.zeros((w, h), dtype=np.float)
+
+        print("[DEBUG] Initial Confidence map: {}".format(self.confidence_map))
+
         pool = Pool()
+        results = []
+        count = 0
+        print("Total = {}".format(w*h))
         for x in range(self.blue_roi[0], self.blue_roi[0]+self.blue_roi[2]):
 
             for y in range(self.blue_roi[1], self.blue_roi[1]+self.blue_roi[3]):
-                tl_x = max(0, int(self.object_roi[0] - self.object_roi[2]/2))
-                tl_y = max(0, int(self.object_roi[1] - self.object_roi[3]/2))
-                br_x = min(tl_x+self.blue_roi[2]//2, self.frame.shape[1])
-                br_y = min(tl_y+self.blue_roi[3]//2, self.frame.shape[0])
+                tl_x = max(0, int(x - self.object_roi[2]//2))
+                tl_y = max(0, int(y - self.object_roi[3]//2))
+                br_x = min(x+self.object_roi[2]//2, self.frame.shape[1])
+                br_y = min(y+self.object_roi[3]//2, self.frame.shape[0])
 
-                r_ = pool.apply_async(self.parallel_helper, [tl_x, tl_y, br_x, br_y, x, y])
+                # r = pool.apply_async(self.parallel_helper, [tl_x, tl_y, br_x, br_y, x, y, count])
+
+                # r = multiprocessing.Process(target=self.parallel_helper, args=(tl_x, tl_y, br_x, br_y, x, y, count,))
+                # results.append(r)
+
+                # r.start()
+
+                self.parallel_helper(tl_x, tl_y, br_x, br_y, x, y, count)
+
+                count += 1
+
+        # for process in results:
+        #     process.join()
+        
+        # [result.get() for result in results]
+
+        print("[DEBUG] Final Confidence map: {}".format(self.confidence_map))
 
 
 
-    def parallel_helper(self, tl_x, tl_y, br_x, br_y, x, y):
+    def parallel_helper(self, tl_x, tl_y, br_x, br_y, x, y, count):
         image_integral = integral_image(self.frame[tl_y:br_y, tl_x:br_x])
 
         conf = 0
-
+        # print("Started_{}!".format(count))
         for sel_id in self.strong_classifier:
             f_id = self.strong_classifier[sel_id]['feature_id']
             f = self.feature_list[f_id]
             
             f_x = compute_haar_feature(image_integral, f.featureType, f.location)
             h_x = self.feature_info[f_id]['polarity'] * (1 if (f_x - self.feature_info[f_id]['theta'])>=0 else -1)
+            # print(f_x, self.feature_info[f_id]['theta'], self.feature_info[f_id]['polarity'], h_x, self.strong_classifier[sel_id]['alpha'])
 
             conf += (h_x * self.strong_classifier[sel_id]['alpha'])
 
+        # print()
+        # print("End_{}!".format(count))
         self.confidence_map[x-self.blue_roi[0]][y-self.blue_roi[1]] = conf
 
 
@@ -272,6 +305,8 @@ class Boosting:
         self.object_roi[2] = w
         self.object_roi[3] = h
 
+        self.object_roi = tuple(self.object_roi)
+
 
     def update_strong_classifier(self):
         # Get max error feature
@@ -289,4 +324,90 @@ class Boosting:
         
         self.get_blue_roi()
 
+        # ######## From get_weak_classifiers()
+        self.get_training_data()
+
+        self.weights = self.init_sample_weights(len(self.training_data), self.num_pos_samples, self.num_neg_samples)
         
+        # Apply features in training data
+        self.training_labels = np.array(list(map(lambda data: data[1], self.training_data)))
+        self.training_rows = np.zeros((len(self.training_data), len(self.selector_pool[max_sel_id])))
+        i = 0
+        for img, label in self.training_data:
+            # self.training_rows[i] = (list(map(lambda f: compute_haar_feature(img, f.featureType, f.location), self.feature_list)))
+            j = 0
+            for f_id in self.selector_pool[max_sel_id]:
+                f = self.feature_list[f_id]
+                self.training_rows[i][j] = compute_haar_feature(img, f.featureType, f.location)
+                j += 1
+
+            i += 1
+
+        i = 0
+        for feature_id in self.selector_pool[max_sel_id]:
+            feature_values = self.training_rows[:, i]
+
+            pos_sum, neg_sum = 0, 0
+            for f_value_id in range(len(feature_values)):
+                if self.training_labels[f_value_id] == -1:
+                    neg_sum += self.weights[f_value_id]
+
+                elif self.training_labels[f_value_id] == 1:
+                    pos_sum += self.weights[f_value_id]
+
+            meu_plus = pos_sum / self.num_pos_samples
+            meu_minus = neg_sum / self.num_neg_samples
+
+            self.feature_info[feature_id]['meu+'] = meu_plus
+            self.feature_info[feature_id]['meu-'] = meu_minus
+
+            self.feature_info[feature_id]['theta'] = abs(meu_plus + meu_minus) / 2
+            self.feature_info[feature_id]['polarity'] = 1 if (meu_plus - meu_minus)>=0 else -1
+
+        # ######## From get_weak_classifiers()
+
+        # ######## From get_strong_classifiers()
+        self.weights = self.weights / np.linalg.norm(self.weights)
+
+        # Compute error of each feature and select min error feature
+        min_feature_id = -1
+        min_feature_pred_labels = []
+        i = 0
+        for feature_id in self.selector_pool[max_sel_id]:
+            h_x = lambda f_x: self.feature_info[feature_id]['polarity'] * (1 if (f_x - self.feature_info[feature_id]['theta'])>=0 else -1)
+            predicted_labels = list(map(lambda f_x: h_x(f_x), self.training_rows[:, i]))
+
+            lambda_wrong = 0
+            lambda_correct = 0
+            
+            for sample_id in range(len(predicted_labels)):
+                if self.training_labels[sample_id] == predicted_labels[sample_id]:
+                    lambda_correct += self.weights[sample_id]
+
+                else:
+                    lambda_wrong += self.weights[sample_id]
+
+            self.feature_info[feature_id]['error'] = lambda_wrong / (lambda_wrong + lambda_correct)
+
+            # Min error feature from that pool
+            if min_feature_id == -1:
+                min_feature_id = feature_id
+                min_feature_pred_labels = predicted_labels
+            elif self.feature_info[feature_id]['error'] < self.feature_info[min_feature_id]['error']:
+                min_feature_id = feature_id
+                min_feature_pred_labels = predicted_labels
+
+            i += 1
+
+
+        self.strong_classifier[sel_id] = {'feature_id': None, 'alpha': None}
+        self.strong_classifier[sel_id]['feature_id'] = min_feature_id
+
+        min_error = self.feature_info[min_feature_id]['error']
+        if min_error == 0:
+            self.strong_classifier[sel_id]['alpha'] = 0
+            # continue
+
+        self.strong_classifier[sel_id]['alpha'] = (1/2)*np.log((1-min_error)/min_error)
+
+        # ######## From get_strong_classifiers()
