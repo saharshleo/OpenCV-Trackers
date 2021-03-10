@@ -27,6 +27,7 @@ class Boosting:
         # self.selector_pool
         self.strong_classifier = {}
     
+
     def get_blue_roi(self):
         tl_x = max(0, int(self.object_roi[0] - self.object_roi[2]/2))
         tl_y = max(0, int(self.object_roi[1] - self.object_roi[3]/2))
@@ -47,6 +48,10 @@ class Boosting:
 
     
     def build_features(self):
+        '''
+        initialize feature_list with `num_features` random Haar features
+        '''
+
         self.feature_list = []
         self.feature_info = {}
         
@@ -57,23 +62,29 @@ class Boosting:
 
             self.feature_list.append(f)
             self.feature_info[feature_id] = {
-                'meu+': 0,
-                'meu-': 0,
-                'theta': 0,
-                'polarity': 0,
-                'alpha': 0,
-                'error': 0,
-                'lambda_wrong': 0,
-                'lambda_correct': 0,
-                'selector_index': -1
+                'meu+': 0,                  # mean of feature value on positive examples
+                'meu-': 0,                  # mean of feature value on negative examples
+                'theta': 0,                 # |(meu+) + (meu-)| / 2
+                'polarity': 0,              # 1 if (meu_plus - meu_minus)>=0 else -1
+                'alpha': 0,                 # weight used in strong classifier
+                'error': 0,                 # lambda_wrong / (lambda_wrong + lambda_correct)
+                'lambda_wrong': 0,          # weighted sum of examples incorrectly classified 
+                'lambda_correct': 0,        # weighted sum of examples correctly classified 
+                'selector_index': -1        # selector's id to which the feature is associated
             }            
 
 
     def get_training_data(self):
+        '''
+        initialize training_data with images and corresponding label (1 or -1)
+        currently using 4 negative patches and single positive patch 4 times
+        [DOUBT] - How to label feature from negative patch, since certain location of negative patch comes inside positive patch
+        '''
+
         # TODO: should be in range of image, with equal height and width as that of image
-        t_x, t_y = self.blue_roi[0], self.blue_roi[1]
-        c_x, c_y = self.blue_roi[0] + self.blue_roi[2], self.blue_roi[1] + self.blue_roi[3]
-        b_x, b_y = self.blue_roi[0] + 2*self.blue_roi[2], self.blue_roi[1] + 2*self.blue_roi[3]
+        t_x, t_y = self.blue_roi[0], self.blue_roi[1]   # top left x, y
+        c_x, c_y = self.blue_roi[0] + self.blue_roi[2], self.blue_roi[1] + self.blue_roi[3]     # center x, y
+        b_x, b_y = self.blue_roi[0] + 2*self.blue_roi[2], self.blue_roi[1] + 2*self.blue_roi[3] # bottom right x, y
         
         pos_image = integral_image(self.frame[(t_y+c_y)//2:(b_y+c_y)//2, (t_x+c_x)//2:(b_x+c_x)//2])
         
@@ -88,23 +99,36 @@ class Boosting:
             (pos_image, 1)
         ]
         
-        self.num_pos_samples = 4
-        self.num_neg_samples = 4
+        self.num_pos_samples = 4    # number of positive samples
+        self.num_neg_samples = 4    # number of negative samples
 
 
     def get_weak_classifiers(self):
+        '''
+        prepare training rows
+        compute feature from feature_list on training samples
+        compute meu+, meu-, theta, polarity
+        '''
+        
         self.get_training_data()
 
-        self.weights = self.init_sample_weights(len(self.training_data), self.num_pos_samples, self.num_neg_samples)
+        # assign weight to each training sample
+        self.weights = self.init_sample_weights(len(self.training_data), self.num_pos_samples, self.num_neg_samples) 
         
-        # Apply features in training data
-        self.training_labels = np.array(list(map(lambda data: data[1], self.training_data)))
-        self.training_rows = np.zeros((len(self.training_data), len(self.feature_list)))
+        # Apply features on training data
+        self.training_labels = np.array(list(map(lambda data: data[1], self.training_data)))    # labels of each row
+        
+        # each row correspond to one training sample and 
+        # columns to feature from feature_list, and 
+        # element refers to computed value of that feature
+        self.training_rows = np.zeros((len(self.training_data), len(self.feature_list)))    
+        
         i = 0
         for img, label in self.training_data:
             self.training_rows[i] = (list(map(lambda f: compute_haar_feature(img, f.featureType, f.location), self.feature_list)))
             i += 1
 
+        # calculate meu+, meu-, theta, polarity of feature i.e column of training_rows
         for feature_id in range(len(self.feature_list)):
             feature_values = self.training_rows[:, feature_id]
 
@@ -127,10 +151,19 @@ class Boosting:
 
 
     def init_sample_weights(self, len_training_data, num_pos, num_neg):
+        '''
+        Assign weight to each sample, initially 1
+        '''
+        
         return np.ones(len_training_data)
 
 
     def init_selector_pool(self):
+        '''
+        distribute features among selectors
+        initializes selector_pool --> {0: [f_id1, f_id2, ...], ..., num_selector:[f_id1, f_id2, ...]}
+        '''
+
         feature_id_list = list(range(self.num_features))
 
         random.shuffle(feature_id_list)
@@ -140,13 +173,19 @@ class Boosting:
         for sel_id in range(self.num_selectors):
             self.selector_pool[sel_id] = feature_id_list[sel_id*f_per_s:sel_id*f_per_s+f_per_s]
 
-        # print(self.selector_pool)
+        # print("[DEBUG] Selector pool: {}".format(self.selector_pool))
 
 
     def get_strong_classifier(self):
+        '''
+        calculate error for each feature
+        select minimum error feature
+        calculate alpha and assign the feature to strong classifier
+        update weights of training samples
+        '''
 
         for sel_id in self.selector_pool:
-            self.weights = self.weights / np.linalg.norm(self.weights)
+            self.weights = self.weights / np.linalg.norm(self.weights)  # normalize weights
 
             # Compute error of each feature and select min error feature
             min_feature_id = -1
@@ -194,7 +233,7 @@ class Boosting:
                     self.weights[sample_id] = self.weights[sample_id] * (1/ (2 * min_error))
 
 
-    '''
+    ''' Old
     def get_confidence_map(self):
         self.confidence_map = np.zeros((self.blue_roi[2], self.blue_roi[3]), dtype=np.float)
 
@@ -227,16 +266,22 @@ class Boosting:
     '''
 
     def get_confidence_map(self):
+        '''
+        compute weighted sum of weak classifiers selected in strong_classifier for every pixels in search region
+        TODO: parallelize this function as it is the main bottle neck
+        DOUBT: confidence map is incorrect
+        '''
+
         w, h = self.blue_roi[2], self.blue_roi[3]
 
         self.confidence_map = np.zeros((w, h), dtype=np.float)
 
         print("[DEBUG] Initial Confidence map: {}".format(self.confidence_map))
 
-        pool = Pool()
+        # pool = Pool()
         results = []
         count = 0
-        print("Total = {}".format(w*h))
+        print("[DEBUG] Total pixels in search region = {}".format(w*h))
         for x in range(self.blue_roi[0], self.blue_roi[0]+self.blue_roi[2]):
 
             for y in range(self.blue_roi[1], self.blue_roi[1]+self.blue_roi[3]):
@@ -264,8 +309,11 @@ class Boosting:
         print("[DEBUG] Final Confidence map: {}".format(self.confidence_map))
 
 
-
     def parallel_helper(self, tl_x, tl_y, br_x, br_y, x, y, count):
+        '''
+        given image coordinates, compute weighted sum and store in confidence map
+        '''
+
         image_integral = integral_image(self.frame[tl_y:br_y, tl_x:br_x])
 
         conf = 0
@@ -286,6 +334,10 @@ class Boosting:
 
 
     def get_bbox(self):
+        '''
+        get new bbox using mean shift algo
+        '''
+
         track_window = self.object_roi    # col, row, w, h
 
         # Setup the termination criteria, either 10 iteration or move by atleast 1 pt
@@ -309,6 +361,10 @@ class Boosting:
 
 
     def update_strong_classifier(self):
+        '''
+        currently updating just the max error weak classifier from its feature pool
+        '''
+
         # Get max error feature
         max_error = -float('inf')
         max_feature_id = -1

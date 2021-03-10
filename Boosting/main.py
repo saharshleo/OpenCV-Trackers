@@ -31,16 +31,16 @@ if __name__ == '__main__':
     bo = Boosting(frame_gray, object_roi, num_rows=None, num_features=12500, num_selectors=50, num_to_replace=1)
 
     # Build features
-    bo.build_features()
+    bo.build_features()     # feature_list gets initialized with random Haar features
 
     # Make weak classifiers from features
-    bo.get_weak_classifiers()
+    bo.get_weak_classifiers()   # compute theta, polarity of above generated features
 
     # Initialize Selector pool
-    bo.init_selector_pool()
+    bo.init_selector_pool()     # distribute features among selectors
 
     # Get strong classifier
-    bo.get_strong_classifier()
+    bo.get_strong_classifier()  # get strong classifier for each selector
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -50,21 +50,18 @@ if __name__ == '__main__':
             bo.frame = frame_gray
 
             # Get search region
-            # right now using blue rect
+            # right now, using blue rect
 
             # Get confidence map
-            print("Here")
             s = time.time()
             bo.get_confidence_map()
-            print(time.time() - s)
+            print("[DEBUG] Time for confidence map: {}".format(time.time() - s))
 
             # Get bbox
-            print(bo.object_roi)
             bo.get_bbox()
 
             # Draw on frame
             x, y, w, h = bo.object_roi
-            print(bo.object_roi)
             frame = cv2.rectangle(frame, (x,y), (x+w,y+h), (255, 0, 0), 2)
 
             cv2.imshow("frame", frame)
