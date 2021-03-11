@@ -1,4 +1,11 @@
+### Introduction:
+
+The Aim is to implement the Online Boosting Tracker using the Adaptive Boosting Algorithm.
+
+
 ### Algo:
+
+![algo](./assets/SMORT.png)
 
 **main**
 * video_path, opencv cap, videoWriter, ask for roi
@@ -68,6 +75,11 @@
     * compute error
     * select min error feature and add to strong clf
 
+
+### Reference: 
+1. https://www.researchgate.net/publication/221259753_Real-Time_Tracking_via_On-line_Boosting
+2. https://ieeexplore.ieee.org/document/5459285
+3. https://ieeexplore.ieee.org/abstract/document/1640768
 
 ### Doubts / Things to try:
 

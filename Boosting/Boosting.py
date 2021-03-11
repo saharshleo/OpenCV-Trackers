@@ -3,8 +3,9 @@ import random
 from FeatureHaar import*
 from skimage.transform import integral_image
 from sklearn.cluster import KMeans
+import multiprocessing
 import cv2 as cv2
-
+import time
 
 class Boosting:
     weights_of_sample=[]
@@ -14,7 +15,7 @@ class Boosting:
     n=0         #total number of negative samples
     # consists of index of the selected features from the self.features
     strong_classifier_index=[]
-    alphas_for_strong_clf=[]
+    alphas_for_strong_clf= []
     ii_image = np.array([])             #integral image of roi
     # contains index of feature in self.features list
     selector_pool = []                #selectors
@@ -42,6 +43,7 @@ class Boosting:
 
     #get search region cordinates based on the roi cordinates provided
     def get_search_region(self):
+        self.search_region.clear()
         roi_height = self.roi_image.shape[0]
         roi_width = self.roi_image.shape[1]
         
@@ -223,6 +225,14 @@ class Boosting:
             best_idx,alpha=self.select_best_weakclf_from_selector_and_compute_say_and_update_wt(self.selector_pool[i])
             Boosting.strong_classifier_index.append(best_idx)
             Boosting.alphas_for_strong_clf.append(alpha)
+        
+        np_alpha_array = np.array(Boosting.alphas_for_strong_clf)
+        sum_arry = np.sum(np_alpha_array)
+        np_alpha_array = np_alpha_array/sum_arry
+        Boosting.alphas_for_strong_clf.clear()
+        Boosting.alphas_for_strong_clf = np_alpha_array
+        
+        
 
     def get_confidence_map(self):
         self.confidence_map = [] # Stores 2 dimensional confidence map for search_region.
@@ -231,20 +241,22 @@ class Boosting:
         self.positive_coordinates=[]
         threshold = 0.5*sum(Boosting.alphas_for_strong_clf) # Not sure about the threshold to be given here, hence left this here. 
         for row in range(self.search_region[1],self.search_region[3]+1):
+            confidence_map_row.clear()
             for col in range(self.search_region[0],self.search_region[2]+1):
                 classification_result=0
                 for count,feature in enumerate(Boosting.strong_classifier_index):
                     if(self.features[feature].validate_feature_at(col, row, self.search_region)):
                         val = self.features[feature].evaluate_feature_at(Boosting.ii_search_region,col-self.search_region[0],row-self.search_region[1])
-                        if(val > self.features[feature].threshold):
+                        if(self.features[feature].polarity*val >= self.features[feature].polarity*self.features[feature].threshold):
                             classification_result += Boosting.alphas_for_strong_clf[count]
                 if(classification_result > threshold):
-                    confidence_map_row.append(1)
                     self.positive_coordinates.append([row,col])
-                else:
-                    confidence_map_row.append(-1)
                 confidence_map_row.append(classification_result)
             self.confidence_map.append(confidence_map_row)
+        print('search region',self.search_region)
+        print('roi',self.roi)
+        print('ii_image',Boosting.ii_search_region.shape)
+        print('postive ',len(self.positive_coordinates))
 
     def get_cluster_center(self):
         kmeans = KMeans(n_clusters=1,random_state=0).fit(np.array(self.positive_coordinates))
@@ -252,12 +264,30 @@ class Boosting:
         print(center)
         return center   
 
+    def get_meanshift_cluster(self):
+
+        track_window = (self.roi[0]-self.search_region[0],self.roi[1]-self.search_region[1],self.roi[2]-self.roi[0],self.roi[3]-self.roi[1])
+
+        term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,10,1)
+
+        ret, track_window = cv2.meanShift(np.array(self.confidence_map),track_window,term_crit)
+
+        x,y,w,h = track_window
+        x = x+self.search_region[0]
+        y = y+self.search_region[1]
+
+        thres = 0.5*sum(Boosting.alphas_for_strong_clf)
+        img = np.array(self.confidence_map)
+        img = img*10
+        cv2.imshow('prob image',img)
+        return (x,y,x+w,y+h)
+
 
     def get_bbox(self):
         center = self.get_cluster_center()
         height = self.roi_image.shape[0]
         width = self.roi_image.shape[1]
-        print(center[0][1]-(width/2),int(center[0][0]-(height/2)),int(center[0][1]+(width/2)),int(center[0][0]+(height/2)))
+        #print(center[0][1]-(width/2),int(center[0][0]-(height/2)),int(center[0][1]+(width/2)),int(center[0][0]+(height/2)))
         # cv2.rectangle(self.frame,(int(center[0][1]-(width/2)),int(center[0][0]-(height/2))),(int(center[0][1]+(width/2)),int(center[0][0]+(height/2))),(0,255,0),2)
         # cv2.imshow("new bb",self.frame)
         return [int(center[0][1]-(width/2)),int(center[0][0]-(height/2)),int(center[0][1]+(width/2)),int(center[0][0]+(height/2))]
