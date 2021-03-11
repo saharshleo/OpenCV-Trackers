@@ -81,6 +81,10 @@ The Aim is to implement the Online Boosting Tracker using the Adaptive Boosting 
 2. https://ieeexplore.ieee.org/document/5459285
 3. https://ieeexplore.ieee.org/abstract/document/1640768
 
+### TO DO:
+* Parallelize/improve the method used to find the confidence map
+* Implement the method to update strong classifier
+
 ### Doubts / Things to try:
 
 * random location samples or fix location by specifying white and black region coords

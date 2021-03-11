@@ -44,25 +44,22 @@ class Boosting:
     #get search region cordinates based on the roi cordinates provided
     def get_search_region(self):
         self.search_region.clear()
+
         roi_height = self.roi_image.shape[0]
         roi_width = self.roi_image.shape[1]
         
         #find the starting x of the search region, 0 if out of bound
-        self.search_region.append(int(self.roi[0]-roi_width/2))
-        self.search_region[0] = 0 if self.search_region[0]<0 else self.search_region[0]
-
+        self.search_region.append(max(0,int(self.roi[0]-roi_width/2)))
+       
         #find the starting y of the search region, 0 if out of bound
-        self.search_region.append(int(self.roi[1]- roi_height/2))
-        self.search_region[1] = 0 if self.search_region[1]<0 else self.search_region[1]
+        self.search_region.append(max(0,int(self.roi[1]- roi_height/2)))
         
         #finding the ending x of the search region, max width of image if out of bound
-        self.search_region.append(int(self.roi[2]+roi_width/2))
-        self.search_region[2] = self.frame.shape[1]-1 if self.search_region[2]>=self.frame.shape[1] else self.search_region[2]
+        self.search_region.append(min(self.frame.shape[1]-1,int(self.roi[2]+roi_width/2)))
 
         #finding the ending y of the search region, max height of the image if out of bound
-        self.search_region.append(int(self.roi[3]+roi_height/2))
-        self.search_region[3] = self.frame.shape[0]-1 if self.search_region[3]>=self.frame.shape[0] else self.search_region[3]
-
+        self.search_region.append(min(self.frame.shape[0]-1,int(self.roi[3]+roi_height/2)))
+        
         self.set_ii_searchregion()
 
     # extract and find the integral image of search region
@@ -75,7 +72,7 @@ class Boosting:
             #Creating a feature object
             feature = FeatureHaar()
             #creating a random feature and appending into the list
-            feature.generateRandomFeature(self.ii_image,self.ii_image.shape[0],self.ii_image.shape[1])
+            feature.generateRandomFeature(self.ii_image.shape[0],self.ii_image.shape[1])
             self.features.append(feature)
         print("features build!")
 
@@ -210,8 +207,8 @@ class Boosting:
             alpha=0
             return best_feature_index,alpha
         alpha=(1/2)*np.log((1-min_error)/min_error)
-        print("values: ",self.features[best_feature_index].value_at_sample_pixels)
-        print(self.features[best_feature_index].clf_out)
+        # print("values: ",self.features[best_feature_index].value_at_sample_pixels)
+        # print(self.features[best_feature_index].clf_out)
         for i in range(self.N):
             if self.features[best_feature_index].clf_out[i]*Boosting.Y[i]==-1:
                 Boosting.weights_of_sample[i]=Boosting.weights_of_sample[i]/(2*min_error)
@@ -226,6 +223,7 @@ class Boosting:
             Boosting.strong_classifier_index.append(best_idx)
             Boosting.alphas_for_strong_clf.append(alpha)
         
+        # To normalize the results
         np_alpha_array = np.array(Boosting.alphas_for_strong_clf)
         sum_arry = np.sum(np_alpha_array)
         np_alpha_array = np_alpha_array/sum_arry
@@ -258,14 +256,16 @@ class Boosting:
         print('ii_image',Boosting.ii_search_region.shape)
         print('postive ',len(self.positive_coordinates))
 
+    # To find the center using kmean clustering
     def get_cluster_center(self):
         kmeans = KMeans(n_clusters=1,random_state=0).fit(np.array(self.positive_coordinates))
         center = kmeans.cluster_centers_
         print(center)
         return center   
 
-    def get_meanshift_cluster(self):
-
+    #To find the new roi using meanshif method
+    def get_meanshift_bbox(self):
+        # Track window co ordinates with respect to the search region
         track_window = (self.roi[0]-self.search_region[0],self.roi[1]-self.search_region[1],self.roi[2]-self.roi[0],self.roi[3]-self.roi[1])
 
         term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,10,1)
@@ -276,7 +276,6 @@ class Boosting:
         x = x+self.search_region[0]
         y = y+self.search_region[1]
 
-        thres = 0.5*sum(Boosting.alphas_for_strong_clf)
         img = np.array(self.confidence_map)
         img = img*10
         cv2.imshow('prob image',img)
@@ -292,6 +291,6 @@ class Boosting:
         # cv2.imshow("new bb",self.frame)
         return [int(center[0][1]-(width/2)),int(center[0][0]-(height/2)),int(center[0][1]+(width/2)),int(center[0][0]+(height/2))]
 
-
+    # TO DO
     def update_strong_classifier(self):
         pass

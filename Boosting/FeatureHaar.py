@@ -55,7 +55,7 @@ class FeatureHaar:
         self.p=0
         self.n=0
         
-    def generateRandomFeature(self,integralImage,height,width):
+    def generateRandomFeature(self,height,width):
         
         valid = False
         minArea =1 #minimum area of the haar like feature

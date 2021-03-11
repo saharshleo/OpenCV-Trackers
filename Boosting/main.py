@@ -4,7 +4,7 @@ import cv2
 from FeatureHaar import*
 from Boosting import*
 
-video = cv2.VideoCapture('./videos/street.mp4')
+video = cv2.VideoCapture('OpenCV-Trackers/Boosting/assets/chaplin.mp4')
 
 ret, frame = video.read()
 roi = cv2.selectROI(frame)
@@ -24,7 +24,7 @@ while(video.isOpened()):
     frame = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
     tracker.update_frame(frame)
     tracker.get_confidence_map()
-    new_roi = tracker.get_meanshift_cluster()
+    new_roi = tracker.get_meanshift_bbox()
     tracker.update_roi(new_roi)
     tracker.get_search_region()
     cv2.rectangle(frame,(new_roi[0],new_roi[1]),(new_roi[2],new_roi[3]),(0,255,0),2)
