@@ -2,6 +2,10 @@
 
 The Aim is to implement the Online Boosting Tracker using the Adaptive Boosting Algorithm.
 
+### Known disadvantages:
+* execution time dependent on size of search region or object being tracked
+* don't know how to decide hyperparameters - number of rows, features, selectors
+* no way of deciding if the object has left the frame / is occluded
 
 ### Algo:
 
