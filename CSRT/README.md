@@ -15,6 +15,7 @@
 **class CSRT**
 * Generate_features()
     * generate multi-channel HOG/colorname filters
+
 * get_spatial_reliability_map()
     * p(y|m=1,x) (appearance likelihood)
         * bayes rules of color histogram ==> cf, cb
@@ -22,9 +23,11 @@
         * ratio of region size of foreground/background histogram extraction
     * weak spatial prior p(x|m=1)
         * Epanechnikov kernel
+
 * get_constrainted_filter()
     * LOOP OVER channels:
         * use regression and map(m) and return filter h
+
 * get_weights()
     * LOOP over channels:
         * learning reliablity
@@ -32,9 +35,10 @@
         * detection reliablity
             * ratio of two major bumps in response map
             * wd = 1-min(max2/max1,0.5)
-    
-            w = wl*wd
+        w = wl*wd
+
 * get_new_position():
+
 * update()
     * extract and update foreground and background histogram
     * estimate reliability map m
