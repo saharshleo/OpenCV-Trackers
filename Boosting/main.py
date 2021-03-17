@@ -4,7 +4,7 @@ import cv2
 from FeatureHaar import*
 from Boosting import*
 
-video = cv2.VideoCapture('OpenCV-Trackers/Boosting/assets/chaplin.mp4')
+video = cv2.VideoCapture('OpenCV-Trackers/assets/chaplin.mp4')
 
 ret, frame = video.read()
 roi = cv2.selectROI(frame)

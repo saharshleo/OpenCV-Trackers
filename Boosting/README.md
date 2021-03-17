@@ -5,7 +5,7 @@ The Aim is to implement the Online Boosting Tracker using the Adaptive Boosting 
 
 ### Algo:
 
-![algo](./assets/SMORT.png)
+![algo](../assets/boosting_flowchart.png)
 
 **main**
 * video_path, opencv cap, videoWriter, ask for roi
