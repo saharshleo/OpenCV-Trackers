@@ -60,5 +60,5 @@ return the log odds ratio
 
 
 ## References
-1.http://vision.ucsd.edu/~bbabenko/data/miltrack-pami-final.pdf
-2.https://www.sciencedirect.com/science/article/abs/pii/S0925231216300364
+1. http://vision.ucsd.edu/~bbabenko/data/miltrack-pami-final.pdf
+2. https://www.sciencedirect.com/science/article/abs/pii/S0925231216300364
