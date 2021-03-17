@@ -35,7 +35,7 @@
         * detection reliablity
             * ratio of two major bumps in response map
             * wd = 1-min(max2/max1,0.5)
-        w = wl*wd
+        * w = wl*wd
 
 * get_new_position():
 
