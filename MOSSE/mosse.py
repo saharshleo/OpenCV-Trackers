@@ -49,7 +49,7 @@ class MOSSE():
         self.Ai = self.G * np.conjugate(F)
         self.Bi = F * np.conjugate(F)
         for i in range(self.train_num):
-            f = self.get_rand_affine()
+            f = self.preprocessing(self.get_rand_affine())
             F = np.fft.fft2(f)
             self.Ai = self.Ai + self.G * np.conjugate(F)
             self.Bi = self.Bi + F * np.conjugate(F)
