@@ -1,7 +1,6 @@
 import cv2
 from mosse import*
 
-
 video = cv2.VideoCapture(0)
 
 ret,frame = video.read()
@@ -18,9 +17,9 @@ while(video.isOpened()):
     ret,frame = video.read()
 
     frame_h, frame_w ,_=frame.shape
-    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+    frame_gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
 
-    tracker.update_frame(frame)
+    tracker.update_frame(frame_gray)
     new_roi = tracker.get_new_roi()
 
     x,y,w,h = new_roi

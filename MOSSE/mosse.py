@@ -57,13 +57,13 @@ class MOSSE():
     # Get new position of roi    
     def get_new_roi(self):
         x,y,w,h = self.roi
-        self.Hi=self.Ai/self.Bi
-        f=self.preprocessing(self.frame[y:y+h,x:x+w])
-        F=np.fft.fft2(f)
-        self.G=self.Hi*F
-        g=np.fft.ifft2(self.G)
+        self.Hi = self.Ai/self.Bi
+        f = self.preprocessing(self.frame[y:y+h,x:x+w])
+        F = np.fft.fft2(f)
+        self.G = self.Hi*F
+        g = np.fft.ifft2(self.G)
         # mapping gaussian map to 0-1
-        g=(g - g.min()) / (g.max() - g.min())
+        g = (g - g.min()) / (g.max() - g.min())
         max_value = np.max(g)
         max_pos = np.where(g == max_value)
         dy = int(np.mean(max_pos[0]) - g.shape[0] / 2)
