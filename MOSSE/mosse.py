@@ -145,12 +145,19 @@ class MOSSE:
         
         # mapping gaussian map to 0-1
         g = (g - g.min()) / (g.max() - g.min())
+        print('g',g)
         max_value = np.max(g)
         max_pos = np.where(g == max_value)
         dy = int(np.mean(max_pos[0]) - g.shape[0] / 2)
         dx = int(np.mean(max_pos[1]) - g.shape[1] / 2)
-        
-        return (x+dx, y+dy, w, h)
+
+        psr = self.psr(g)
+        if psr <= 6:
+            dx=0
+            dy=0
+            print('OBJECT OCCLUDED!!')
+        print('psr:',psr)
+        return (x+dx, y+dy, w, h) , psr
 
 
     def update_roi(self, roi):
@@ -175,4 +182,18 @@ class MOSSE:
         # filters need to quickly adapt in order to follow objects. Running average is used for this purpose.
         self.Ai = self.learning_rate * self.G * np.conjugate(F) + (1 - self.learning_rate) * self.Ai
         self.Bi = self.learning_rate * F * np.conjugate(F) + (1 - self.learning_rate) * self.Bi
-        
+    
+    def psr(self,g):
+        g_max = np.max(g)
+        x, y, w, h = self.roi
+        center_x = x + w//2
+        center_y = y + h//2
+        mask = np.ones(g.shape,dtype=np.bool)
+        mask[center_x-5:center_x+6,center_y-5:center_y+6] = False
+        g = g.flatten()
+        mask = mask.flatten()
+        sidelobe = g[mask]
+        mn = np.mean(sidelobe)
+        sd = np.std(sidelobe)
+        psr = (g_max-mn)/sd
+        return psr

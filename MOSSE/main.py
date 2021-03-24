@@ -20,8 +20,8 @@ while(video.isOpened()):
     frame_h, frame_w ,_=frame.shape
     frame_gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
 
-    tracker.update_frame(frame)
-    new_roi = tracker.get_new_roi()     # apply H and get new bounding box on object
+    tracker.update_frame(frame_gray)
+    new_roi,psr = tracker.get_new_roi()     # apply H and get new bounding box on object
 
     x,y,w,h = new_roi
     
@@ -35,9 +35,10 @@ while(video.isOpened()):
         y = frame_h-h
 
     new_roi = (x, y, w, h)
-
     tracker.update_roi(new_roi)
-    tracker.update()
+
+    if psr > 8:
+        tracker.update()
     
     cv2.rectangle(frame, (x, y),(x + w, y + h), (0,255,0), 2)
     cv2.imshow('frame',frame)
