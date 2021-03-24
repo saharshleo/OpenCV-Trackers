@@ -17,9 +17,9 @@ class MOSSE:
     def __init__(self, frame, roi, learning_rate, train_num, sigma):
         self.frame = frame
         self.roi = roi                      # contains (top_left_x, top_left_y, width, height)
-        self.learning_rate = learning_rate  # TODO
+        self.learning_rate = learning_rate  # running average parameter 
         self.train_num = train_num          # number of training examples to be trained on
-        self.sigma = sigma                  # TODO
+        self.sigma = sigma                  # parameter for calculating gaussian map 
 
 
     def get_gaussian_map(self):
@@ -34,7 +34,7 @@ class MOSSE:
         # create a rectangular grid out of two given one-dimensional arrays
         xx, yy = np.meshgrid(np.arange(x, x+w), np.arange(y, y+h))
 
-        # TODO
+        # calculating distance of each pixel from roi center
         dist = (np.square(xx - center_x) + np.square(yy - center_y)) / (2*self.sigma)
         
         response = np.exp(-dist)
@@ -67,7 +67,7 @@ class MOSSE:
         img = (img - np.mean(img)) / (np.std(img))
         
         # image is multiplied by a cosine window which gradually reduces the pixel values near the edge to zero.
-        window_col = np.hanning(w)  # TODO: purpose of hanning
+        window_col = np.hanning(w)  # returns a hanning window....Hanning window is a taper formed by using a weighted cosine
         window_row = np.hanning(h)
         col_mask, row_mask = np.meshgrid(window_col, window_row)
         window = col_mask * row_mask

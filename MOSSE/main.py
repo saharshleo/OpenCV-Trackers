@@ -26,6 +26,7 @@ while(video.isOpened()):
 
     x,y,w,h = new_roi
     
+    # limiting the coordinates in case the tracked roi is going outside the frame
     x = max(0, x)
     y = max(0, y)
     
