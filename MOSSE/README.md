@@ -2,6 +2,13 @@
 
 Aim is to implement the MOSSE tracker algorithm
 
+## Demo
+![demo](../assets/mosse_demo.gif)
+
+### FLOW CHART
+
+![](../assets/MOSSE_flowchart.png)
+
 ### ALGO
 
 **main**
@@ -53,8 +60,9 @@ Aim is to implement the MOSSE tracker algorithm
     * normalize `img` to mean value 0.0 and norm 1.0
     * calculate and apply cosine window
 
-## Demo
-![demo](../assets/mosse_demo.gif)
+### TODO:
+1. Tuning the hyperparameters
+2. Occulsion handling using PSR values
 
 ### REFERENCES:
 1. https://www.researchgate.net/publication/221362729_Visual_object_tracking_using_adaptive_correlation_filters
