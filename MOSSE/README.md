@@ -53,6 +53,9 @@ Aim is to implement the MOSSE tracker algorithm
     * normalize `img` to mean value 0.0 and norm 1.0
     * calculate and apply cosine window
 
+## Demo
+![demo](../assets/mosse_demo.gif)
+
 ### REFERENCES:
 1. https://www.researchgate.net/publication/221362729_Visual_object_tracking_using_adaptive_correlation_filters
 2. https://github.com/TianhongDai/mosse-object-tracking
