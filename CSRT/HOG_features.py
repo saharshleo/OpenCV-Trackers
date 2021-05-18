@@ -1,6 +1,6 @@
 import cv2
 from skimage.feature import hog
-from skimage.transform import resize
+# from skimage.transform import resize
 
 def get_hog_features(image, des_orientations, des_pixels_per_cell):
     fd, hog_image = hog(image, orientations = des_orientations,

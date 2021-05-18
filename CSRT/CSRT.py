@@ -4,13 +4,34 @@ from skimage.transform import resize
 import HOG_features as hogfeat
 import numpy as np
 
+def get_gaussian_map(roi, sigma):
+    '''
+    returns the gaussian map response
+    '''
+
+    x, y, w, h = roi
+    center_x = x + w/2
+    center_y = y + h/2
+        
+    # create a rectangular grid out of two given one-dimensional arrays
+    xx, yy = np.meshgrid(np.arange(x, x+w), np.arange(y, y+h))
+
+    # calculating distance of each pixel from roi center
+    dist = (np.square(xx - center_x) + np.square(yy - center_y)) / (2 * sigma)
+        
+    response = np.exp(-dist)
+    response = (response - response.min()) / (response.max() - response.min())
+        
+    return response
 
 class CSRT():
 
     def __init__(self,frame,roi):
         self.frame = frame
         self.roi = roi
-
+        self.sigma = 100
+        self.g = get_gaussian_map(self.roi, self.sigma)
+        print(self.g)
 
     def set_roiImage(self):
         x,y,w,h = self.roi
@@ -26,7 +47,8 @@ class CSRT():
         self.fg_Model = np.zeros((1,65), dtype="float")
         self.bg_Model = np.zeros((1,65), dtype="float")
 
-        (self.mask,self.fg_Model,self.bg_Model) = cv2.grabCut(self.frame,self.mask,self.roi,self.bg_Model,self.fg_Model,iterCount=5,mode=cv2.GC_INIT_WITH_RECT)
+        (self.mask,self.fg_Model, self.bg_Model) = cv2.grabCut(self.frame, self.mask, self.roi, 
+            self.bg_Model, self.fg_Model, iterCount = 5, mode = cv2.GC_INIT_WITH_RECT)
         outputmask = np.where((self.mask == cv2.GC_BGD)| (self.mask == cv2.GC_PR_BGD),0,1)
         outputmask = (outputmask).astype("uint8")*255
         output = cv2.bitwise_and(self.frame,self.frame,mask=outputmask)
@@ -39,6 +61,8 @@ class CSRT():
     def preprocessing():
         pass
 
-    def update():
+    def update_H():
         pass
 
+    def channel_reliability():
+        pass
