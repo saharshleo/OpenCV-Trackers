@@ -12,7 +12,7 @@
 * **init**(`self`,`bbox`) ==> initialise tracker variables
 
 * **predict**(`self`)
-    * implement following equations :
+    * implement following equations :   
     ![prediction_equations](../assets/kalman_predict.png)
     * if `self.age` > 1
         * `self.hit_streak` = 0
@@ -20,7 +20,7 @@
 * **update**(`self`,`bbox`)
     * `self.age` = 0
     * `self.hit_streak` += 1
-    * implement the following equations :
+    * implement the following equations :   
     ![update_equations](../assets/kalman_update.png)
   
 **class** `sort` :
