@@ -33,6 +33,8 @@ class CSRT():
         self.frame = frame
         self.roi = roi
         self.sigma = 100
+        self.mu = 5
+        self.beta, self.lambad = 3, 0.01
         self.g = get_gaussian_map(self.roi, self.sigma)
         # print(self.g)
         self.features = []
@@ -45,8 +47,12 @@ class CSRT():
 
 
     def generate_features(self, des_orientations, des_pixels_per_cell):
-        self.features.append(hogfeat.get_hog_features(self.roi_img, des_orientations,
-            des_pixels_per_cell)) 
+        # self.features.append(hogfeat.get_hog_features(self.roi_img, des_orientations,
+        #     des_pixels_per_cell)) 
+        self.f = hogfeat.get_hog_features(self.roi_img, des_orientations,des_pixels_per_cell)
+        self.features.append(self.f)
+      
+        cv2.imshow('hog_image',self.features[0])
 
     def get_spatial_reliability_map(self):
         self.mask = np.zeros((self.frame.shape[0],self.frame.shape[1]))
@@ -69,28 +75,36 @@ class CSRT():
         indice_one = np.where(self.m == 255)
         indice_zero = np.where(self.m == 0)
         self.m[indice_one] = 0
-        self.m[indice_zero] = 255
-        # print(self.m)
+        self.m[indice_zero] = 1
         cv2.imshow("Spatial_map", self.m)
 
-    def preprocessing():
-        pass
+    def preprocessing(self):
+        f_hat = cap_func(self.features[0])
+        g_hat = cap_func(self.g)
+        self.h = (f_hat * np.conjugate(g_hat)) / (f_hat * np.conjugate(f_hat) + self.lambad)
+        
+        # res = f_hat * self.h
+        # G = np.fft.ifft2(res)
+        # G = (G - G.min()) / (G.max() - G.min())
+        
+        # max_value = np.max(G)
+        # max_pos = np.where(G == max_value)
+        # dy = int(np.mean(max_pos[0]) - G.shape[0] / 2)
+        # dx = int(np.mean(max_pos[1]) - G.shape[1] / 2)
+
+        # print("roi",self.roi)
+        # print('G shape', G.shape)
+        # print('dx, dy',(dx,dy))
+        
 
     def update_H(self):
         h_prev = self.h
         I_prev = self.I
         self.hm = self.h * self.m 
         self.hc = np.zeros_like(self.hm)
-        self.mu = 5
-        self.beta, self.lambad = 3, 0.01
         self.D = self.h.shape[0] * self.h.shape[1]
         i = 0
         while (i < 4):
-            i = 0
-            print(type(self.features[0]))
-            print(self.features[0].shape)
-            np.reshape(self.features[0], (self.features[0].shape[0], 1))
-            print(self.features[0].shape)
             f_hat = cap_func(self.features[0])
             g_hat = cap_func(self.g)
             hm_hat = cap_func(self.hm)
@@ -100,6 +114,25 @@ class CSRT():
             I_hat = I_hat + self.mu * (cap_func(self.hc - self.h))
             self.mu *= self.beta
             i += 1
+
+    def get_new_roi(self):
+        x, y, w, h = self.roi
+
+        f_hat = cap_func(self.features[0])
+        res = f_hat * self.h
+        G = np.fft.ifft2(res)
+        G = (G - G.min()) / (G.max() - G.min())
+        
+        max_value = np.max(G)
+        max_pos = np.where(G == max_value)
+        dy = int(np.mean(max_pos[0]) - G.shape[0] / 2)
+        dx = int(np.mean(max_pos[1]) - G.shape[1] / 2)
+
+        print("roi",self.roi)
+        print('G shape', self.features[0].shape)
+        print('dx, dy',(dx,dy))
+
+        return (x+dx, y+dy, w, h)
 
 
         
