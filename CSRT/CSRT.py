@@ -4,6 +4,7 @@ from skimage.transform import resize
 import HOG_features as hogfeat
 import numpy as np
 
+
 def get_gaussian_map(roi, sigma):
     '''
     returns the gaussian map response
@@ -24,24 +25,32 @@ def get_gaussian_map(roi, sigma):
         
     return response
 
+
 def cap_func(element):
     return np.fft.fft2(element)
 
+
 class CSRT():
 
-    def __init__(self,frame,roi):
+    def __init__(self, frame, roi, debug=True):
+        self.debug = debug
+
         self.frame = frame
         self.roi = roi
         self.sigma = 100
         self.mu = 5
-        self.beta, self.lambad = 3, 0.01
+        self.beta, self.λ = 3, 0.01
         self.g = get_gaussian_map(self.roi, self.sigma)
-        # print(self.g)
+        
+        if self.debug:
+            cv2.imshow("Gaussian", self.g)
+        
         self.features = []
+
 
     def set_roiImage(self):
         x,y,w,h = self.roi
-        self.roi_img = self.frame[y:y+h,x:x+w]
+        self.roi_img = self.frame[y:y+h, x:x+w]
         self.h = np.zeros((self.roi_img.shape[0], self.roi_img.shape[1]))
         self.I = np.zeros_like(self.h)
 
@@ -49,71 +58,78 @@ class CSRT():
     def generate_features(self, des_orientations, des_pixels_per_cell):
         # self.features.append(hogfeat.get_hog_features(self.roi_img, des_orientations,
         #     des_pixels_per_cell)) 
-        self.f = hogfeat.get_hog_features(self.roi_img, des_orientations,des_pixels_per_cell)
+        self.f = hogfeat.get_hog_features(self.roi_img, des_orientations, des_pixels_per_cell)
         self.features.append(self.f)
       
-        cv2.imshow('hog_image',self.features[0])
+        if self.debug:
+            cv2.imshow('hog_image', self.features[0])
+
 
     def get_spatial_reliability_map(self):
-        self.mask = np.zeros((self.frame.shape[0],self.frame.shape[1]))
+        self.mask = np.zeros((self.frame.shape[0], self.frame.shape[1]))
         self.fg_Model = np.zeros((1,65), dtype="float")
         self.bg_Model = np.zeros((1,65), dtype="float")
 
         (self.mask,self.fg_Model, self.bg_Model) = cv2.grabCut(self.frame, self.mask, self.roi, 
             self.bg_Model, self.fg_Model, iterCount = 5, mode = cv2.GC_INIT_WITH_RECT)
-        outputmask = np.where((self.mask == cv2.GC_BGD)| (self.mask == cv2.GC_PR_BGD),0,1)
-        outputmask = (outputmask).astype("uint8")*255
-        # print(type(outputmask))
-        output = cv2.bitwise_and(self.frame,self.frame,mask=outputmask)
-        valuemask = (self.mask == cv2.GC_PR_BGD).astype("uint8")*255
-        cv2.imshow("valuemask",valuemask)
-        cv2.imshow("mask",outputmask)
-        cv2.imshow("grabcut",output)
+        
+        outputmask = np.where((self.mask == cv2.GC_BGD) | (self.mask == cv2.GC_PR_BGD),0,1)
+        outputmask = (outputmask).astype("uint8") * 255        
+        output = cv2.bitwise_and(self.frame, self.frame, mask=outputmask)
+        valuemask = (self.mask == cv2.GC_PR_BGD).astype("uint8") * 255
+        # cv2.imshow("valuemask",valuemask)
+        # cv2.imshow("mask",outputmask)
+        # cv2.imshow("grabcut",output)
+        
         x, y, w, h = self.roi
-        self.m = valuemask[y : y + h, x : x + w] 
-        # print(type(self.m))
+        self.m = valuemask[y:y+h, x:x+w] 
+        if self.debug:
+            cv2.imshow("Spatial reliability map", self.m) 
+        
         indice_one = np.where(self.m == 255)
         indice_zero = np.where(self.m == 0)
         self.m[indice_one] = 0
         self.m[indice_zero] = 1
-        cv2.imshow("Spatial_map", self.m)
 
-    def preprocessing(self):
+
+    def initialize_fgh(self):
         f_hat = cap_func(self.features[0])
         g_hat = cap_func(self.g)
-        self.h = (f_hat * np.conjugate(g_hat)) / (f_hat * np.conjugate(f_hat) + self.lambad)
-        
-        # res = f_hat * self.h
-        # G = np.fft.ifft2(res)
-        # G = (G - G.min()) / (G.max() - G.min())
-        
-        # max_value = np.max(G)
-        # max_pos = np.where(G == max_value)
-        # dy = int(np.mean(max_pos[0]) - G.shape[0] / 2)
-        # dx = int(np.mean(max_pos[1]) - G.shape[1] / 2)
-
-        # print("roi",self.roi)
-        # print('G shape', G.shape)
-        # print('dx, dy',(dx,dy))
+        # self.h = (f_hat * np.conjugate(g_hat)) / (f_hat * np.conjugate(f_hat) + self.λ)
+        self.h = self.g
         
 
     def update_H(self):
-        h_prev = self.h
-        I_prev = self.I
-        self.hm = self.h * self.m 
-        self.hc = np.zeros_like(self.hm)
+        self.initialize_fgh()
+        
+        f_hat = cap_func(self.features[0])
+        f_hat_conjugate = np.conjugate(f_hat)
+        
+        g_hat = cap_func(self.g)
+        g_hat_conjugate = np.conjugate(g_hat)
+
         self.D = self.h.shape[0] * self.h.shape[1]
-        i = 0
-        while (i < 4):
-            f_hat = cap_func(self.features[0])
-            g_hat = cap_func(self.g)
+
+        self.mu_i = self.mu
+        I_hat = cap_func(self.I)
+
+        for i in range(4):
+            self.hm = self.h * self.m
             hm_hat = cap_func(self.hm)
-            I_hat = cap_func(self.I)
-            self.hc = (f_hat * np.conjugate(g_hat) + (self.mu * hm_hat - I_hat)) / (f_hat * np.conjugate(f_hat) + self.mu)
-            self.h = self.m * np.fft.ifft((I_hat + self.mu * self.hc) / (self.lambad / 2 * self.D + self.mu))
-            I_hat = I_hat + self.mu * (cap_func(self.hc - self.h))
-            self.mu *= self.beta
-            i += 1
+
+            # Eqn 12
+            self.hc = (f_hat * g_hat_conjugate + (self.mu * hm_hat - I_hat)) / (f_hat_conjugate * f_hat + self.mu_i)
+            
+            # Eqn 13
+            self.h = (self.m * np.fft.ifft((I_hat + self.mu * self.hc))) / (self.λ / (2 * self.D) + self.mu_i)
+            
+            hc_cap = cap_func(self.hc)
+            h_cap = cap_func(self.h)
+            # Eqn 11
+            I_hat = I_hat + self.mu * (hc_cap - h_cap)
+            
+            self.mu_i *= self.beta
+
 
     def get_new_roi(self):
         x, y, w, h = self.roi
@@ -123,19 +139,23 @@ class CSRT():
         G = np.fft.ifft2(res)
         G = (G - G.min()) / (G.max() - G.min())
         
+        _G = np.absolute(G)
+        _G = np.array(_G * 255, dtype=np.dtype('uint8'))
+        if self.debug:
+            cv2.imshow("Output", _G)
+
         max_value = np.max(G)
         max_pos = np.where(G == max_value)
         dy = int(np.mean(max_pos[0]) - G.shape[0] / 2)
         dx = int(np.mean(max_pos[1]) - G.shape[1] / 2)
 
-        print("roi",self.roi)
-        print('G shape', self.features[0].shape)
-        print('dx, dy',(dx,dy))
+        if self.debug:
+            print("roi", self.roi)
+            print('G shape', self.features[0].shape)
+            print('dx, dy',(dx, dy))
 
         return (x+dx, y+dy, w, h)
-
-
-        
+   
 
     def channel_reliability():
         pass
