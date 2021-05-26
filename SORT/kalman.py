@@ -11,14 +11,14 @@ class kalman_tracker():
         self.dim_x=7 # [x,y,area(s),aspect ratio(r),x_vel,y_vel, area_vel]
         self.dim_z=4 # [x,y,s,r]
         # measurement uncertainty/noise   ndarray (dim_z, dim_z), default eye(dim_x)
-        self.R = np.eye((self.dim_z,self.dim_z))
+        self.R = np.eye(self.dim_z,self.dim_z)
         self.R[2:,2:] *= 10.
         # covariance matrix   ndarray (dim_x, dim_x), default eye(dim_x)
-        self.P = np.eye((self.dim_x,self.dim_x))
+        self.P = np.eye(self.dim_x,self.dim_x)
         self.P[4:,4:] *= 1000. #give high uncertainty to the unobservable initial velocities
         self.P *= 10.
         # Process uncertainty/noise  ndarray (dim_x, dim_x), default eye(dim_x)
-        self.Q = np.eye((self.dim_x,self.dim_x))
+        self.Q = np.eye(self.dim_x,self.dim_x)
         self.Q[-1,-1] *= 0.01
         self.Q[4:,4:] *= 0.01
         # filter state estimate  ndarray (dim_x, 1), default = [0,0,0…0]
@@ -29,10 +29,10 @@ class kalman_tracker():
         # measurement function   ndarray (dim_z, dim_x)
         self.H = np.array([[1,0,0,0,0,0,0],[0,1,0,0,0,0,0],[0,0,1,0,0,0,0],[0,0,0,1,0,0,0]])
         # age denotes for how many frames the object we are tracking is lost
-
+        self.z = convert_bbox_to_z(bbox)
         self.age=0
         self.hit_streak=0
-        self.id=kalman_tracker.count
+        self.id_assigned=False
 
     def update(self,bbox):
         self.age = 0
@@ -46,7 +46,7 @@ class kalman_tracker():
     def predict(self):
         self.x = np.matmul(self.F,self.x)
         self.P = np.matmul(np.matmul(self.F,self.P),np.transpose(self.F))
-        self.age+=1
+        self.age += 1
         if (self.age>1) :
             self.hit_streak=0
         prediction = convert_x_to_bbox(self.x)

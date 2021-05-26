@@ -26,3 +26,15 @@ def convert_x_to_bbox(x,score=None):
     return np.array([x[0]-w/2.,x[1]-h/2.,x[0]+w/2.,x[1]+h/2.]).reshape((1,4))
   else:
     return np.array([x[0]-w/2.,x[1]-h/2.,x[0]+w/2.,x[1]+h/2.,score]).reshape((1,5))
+
+def maximum(iou_matrix,num_detects,num_tracks):
+  max_val = iou_matrix[0][0]
+  max_i=0
+  max_j=0
+  for i in range(num_detects):
+    for j in range(num_tracks):
+      if (iou_matrix[i][j]>max_val):
+        max_val=iou_matrix[i][j]
+        max_i=i
+        max_j=j
+  return max_i,max_j
