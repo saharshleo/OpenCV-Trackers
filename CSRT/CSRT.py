@@ -1,4 +1,5 @@
 import cv2
+from skimage import feature
 from skimage.feature import hog
 from skimage.transform import resize
 import HOG_features as hogfeat
@@ -33,7 +34,7 @@ def cap_func(element):
 class CSRT():
 
     def __init__(self, frame, roi, debug=True):
-        self.debug = debug
+        self.debug = None
 
         self.frame = frame
         self.roi = roi
@@ -46,6 +47,9 @@ class CSRT():
             cv2.imshow("Gaussian", self.g)
         
         self.features = []
+        self.h_cap = [1, 1] # Will contain h_cap values for all channels in sequential order
+        self.p = [] # This variable will store position of object in each frame.
+        self.channel_weights = [] # Will store channel weights for all channels.
 
 
     def set_roiImage(self):
@@ -102,36 +106,38 @@ class CSRT():
     def update_H(self):
         self.initialize_fgh()
         
-        f_hat = cap_func(self.features[0])
-        f_hat_conjugate = np.conjugate(f_hat)
+        for channel_index in range(len(self.features)):
+            f_hat = cap_func(self.features[channel_index])
+            f_hat_conjugate = np.conjugate(f_hat)
         
-        g_hat = cap_func(self.g)
-        g_hat_conjugate = np.conjugate(g_hat)
+            g_hat = cap_func(self.g)
+            g_hat_conjugate = np.conjugate(g_hat)
 
-        self.D = self.h.shape[0] * self.h.shape[1]
+            self.D = self.h.shape[0] * self.h.shape[1]
 
-        self.mu_i = self.mu
-        I_hat = cap_func(self.I)
+            self.mu_i = self.mu
+            I_hat = cap_func(self.I)
 
-        for i in range(4):
-            self.hm = self.h * self.m
-            hm_hat = cap_func(self.hm)
+            for i in range(4):
+                self.hm = self.h * self.m
+                hm_hat = cap_func(self.hm)
 
-            # Eqn 12
-            self.hc = (f_hat * g_hat_conjugate + (self.mu * hm_hat - I_hat)) / (f_hat_conjugate * f_hat + self.mu_i)
+                # Eqn 12
+                self.hc = (f_hat * g_hat_conjugate + (self.mu * hm_hat - I_hat)) / (f_hat_conjugate * f_hat + self.mu_i)
             
-            # Eqn 13
-            self.h = (self.m * np.fft.ifft((I_hat + self.mu * self.hc))) / (self.λ / (2 * self.D) + self.mu_i)
+                # Eqn 13
+                self.h = (self.m * np.fft.ifft((I_hat + self.mu * self.hc))) / (self.λ / (2 * self.D) + self.mu_i)
             
-            hc_cap = cap_func(self.hc)
-            h_cap = cap_func(self.h)
-            # Eqn 11
-            I_hat = I_hat + self.mu * (hc_cap - h_cap)
+                hc_cap = cap_func(self.hc)
+                h_cap = cap_func(self.h)
+                # Eqn 11
+                I_hat = I_hat + self.mu * (hc_cap - h_cap)
             
-            self.mu_i *= self.beta
+                self.mu_i *= self.beta
+            self.h_cap[channel_index] = h_cap
 
 
-    def get_new_roi(self):
+    def get_new_roi(self, get_max_G_value = None):
         x, y, w, h = self.roi
 
         f_hat = cap_func(self.features[0])
@@ -146,16 +152,24 @@ class CSRT():
 
         max_value = np.max(G)
         max_pos = np.where(G == max_value)
+        if (get_max_G_value):
+            return max_value, np.max(np.delete(G, max_pos))
         dy = int(np.mean(max_pos[0]) - G.shape[0] / 2)
         dx = int(np.mean(max_pos[1]) - G.shape[1] / 2)
 
         if self.debug:
             print("roi", self.roi)
             print('G shape', self.features[0].shape)
-            print('dx, dy',(dx, dy))
-
+            print('dx, dy',(dx, dy)) 
         return (x+dx, y+dy, w, h)
-   
 
-    def channel_reliability():
-        pass
+    def channel_reliability(self):
+        w_learn, pd_max_2 = self.get_new_roi(True)
+        w_deter = max(0.5, 1 - pd_max_2 / w_learn)
+        print(w_learn, pd_max_2)
+        return w_learn * w_deter
+
+    def apply_csrt(self):
+        self.p = self.get_new_roi()
+        # print(self.p)
+        self.channel_reliability()
