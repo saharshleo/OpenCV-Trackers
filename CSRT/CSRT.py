@@ -158,9 +158,15 @@ class CSRT():
             self.channel_weights[channel_index] = G_nms[pd_max1_index]
             G_nms.pop(pd_max1_index)
             self.channel_weights[channel_index] /= max(G_nms)
+            self.channel_weights[channel_index] = 1 / self.channel_weights[channel_index]
             self.channel_weights[channel_index] = 1 - self.channel_weights[channel_index]
             self.channel_weights[channel_index] *= max_value
-            self.G_cap += max_value * self.channel_weights[channel_index]
+            self.channel_weights[channel_index] = max(0.5, self.channel_weights[channel_index])
+        sum = 0
+        for channel_index in range(len(self.features)):
+            sum += self.channel_weights[channel_index]
+        for channel_index in range(len(self.features)):
+            self.channel_weights[channel_index] /= sum
         print("channel_weights", self.channel_weights)
         print("G_cap", self.G_cap)
 
@@ -168,18 +174,12 @@ class CSRT():
             print("roi", self.roi)
             print('G shape', self.features[0].shape)
 
-    def channel_reliability(self):
-        w_learn, pd_max_2 = self.get_new_roi(True)
-        w_deter = max(0.5, 1 - pd_max_2 / w_learn)
-        print(w_learn, pd_max_2)
-        return w_learn * w_deter
-
 def calculate_final_g_cap(self):
     for channel_index in range(len(self.features)):
         self.G_res += self.G_cap[channel_index] * self.channel_weights[channel_index]
     return self.G_res
 
-    def apply_csrt(self):
-        self.p = self.get_new_roi()
-        # print(self.p)
-        self.channel_reliability()
+def apply_csrt(self):
+    self.p = self.get_new_roi()
+    # print(self.p)
+    self.channel_reliability()
