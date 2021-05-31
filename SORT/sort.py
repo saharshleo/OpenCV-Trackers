@@ -28,7 +28,6 @@ def iou(detections, estimate) :
             # return the intersection over union value
             iou_of_det_with_tracks.append(iou)
         iou_matrix.append(iou_of_det_with_tracks)
-    print(iou_matrix)
     return iou_matrix
 
 def associate_detections(detections, tracks, iou_threshold= 0.3) :
@@ -48,21 +47,21 @@ def associate_detections(detections, tracks, iou_threshold= 0.3) :
             max_i,max_j=maximum(iou_matrix,num_dets,num_tracks)
             max_iou=iou_matrix[max_i][max_j]
             iou_matrix[max_i][max_j]=-1
-    print("matched indices: {}".format(matched_indices))
+   
     unmatched_detections = []
     for d, det in enumerate(detections):
-        if(d not in matched_indices[:0]):
+        if(d not in matched_indices[:,0]):
             unmatched_detections.append(d)
     
     unmatched_trackers = []
     for t, trk in enumerate(tracks):
-        if(t not in matched_indices[:1]):
+        if(t not in matched_indices[:,1]):
             unmatched_trackers.append(t)
     
     return matched_indices, unmatched_detections, unmatched_trackers
 
 class sort :
-    def __init__(self,max_age = 3,min_hits = 5,iou_threshold= 0.3) :
+    def __init__(self,max_age = 2,min_hits = 3,iou_threshold= 0.3) :
         self.max_age = max_age
         self.min_hits = min_hits
         self.iou_threshold = iou_threshold
@@ -71,15 +70,15 @@ class sort :
     
     def update(self, detections=np.empty((0, 5))) :
         self.frame_count += 1
+        print("============== FRAME {} ================".format(self.frame_count))
         tracks = np.zeros((len(self.trackers), 5))
-        to_delete = []
         track_for_frame = []
         for i in range(len(tracks)) :
-            track=[]
             position=self.trackers[i].predict()[0]
             tracks[i,:]=[position[0], position[1], position[2], position[3], 0]
         
         matched, unmatched_dets, unmatched_trks = associate_detections(detections,tracks, self.iou_threshold)
+        
         for i in matched :
             self.trackers[i[1]].update(detections[i[0], :])
 
@@ -87,20 +86,24 @@ class sort :
             tracker = kalman_tracker(detections[i,:])
             self.trackers.append(tracker)
         
-        for tracker in self.trackers :
+        for i,tracker in enumerate(self.trackers) :
             state=tracker.get_state()[0]
             if (tracker.age < 1) and (tracker.hit_streak >= self.min_hits or self.frame_count <= self.min_hits):
                 if tracker.id_assigned==False:
                     kalman_tracker.count+=1
                     tracker.id=kalman_tracker.count
                     tracker.id_assigned=True
-                    print("{} CREATED".format(tracker.id))
+                    # print("{} CREATED".format(tracker.id))
                 track_for_frame.append(np.concatenate((state,[tracker.id+1])).reshape(1,-1))
             if (tracker.age > self.max_age) :
                 # print("{} DELETED".format(tracker.id))
                 self.trackers.pop(i)
+
+        print("MATCHED:\n{}\n=======\nUNMATCHED DETECTIONS\n{}\n======\nUNMATCHED TRACKERS:\n{}".format(matched,unmatched_dets,unmatched_trks))
         if len(track_for_frame) > 0:
             return np.concatenate(track_for_frame)
         else:
             return np.empty((0,5))
+
+        
 

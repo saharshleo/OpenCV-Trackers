@@ -14,7 +14,7 @@ output_layers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 print("YOLO LOADED")
 
 tracker = sort(max_age=1, min_hits=3,iou_threshold=0.3)
-video = cv2.VideoCapture("./assets/street.mp4")
+video = cv2.VideoCapture("./assets/chaplin.mp4")
 while(video.isOpened()):
     ret,img = video.read()
     # Capture frame-by-frame
