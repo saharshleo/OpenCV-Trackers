@@ -1,7 +1,4 @@
 import cv2
-from skimage import feature
-from skimage.feature import hog
-from skimage.transform import resize
 import HOG_features as hogfeat
 import numpy as np
 
@@ -34,13 +31,11 @@ def cap_func(element):
 class CSRT():
 
     def __init__(self, frame, roi, num_features, debug = False):
-        self.debug = None
+        self.debug = debug
 
         self.frame = frame
         self.roi = roi
-        self.sigma = 100
-        self.mu = 5
-        self.beta, self.λ, self.n = 3, 0.01, 0.02
+        self.beta, self.λ, self.n, self.sigma, self.mu = 3, 0.01, 0.02, 100, 5
         self.g = get_gaussian_map(self.roi, self.sigma)
         
         if self.debug:
@@ -51,12 +46,12 @@ class CSRT():
         self.p = [] # This variable will store position of object in each frame.
         self.channel_weights = [0] * num_features # Will store channel weights for all channels.
         self.G_cap = [0] * num_features # Will store individual G_cap/g_tilda values for channels.
-        self.G_res = 0 # Will store resultant G_cap after using channel_reliability.
+        # self.G_res = 0 # Will store resultant G_cap after using channel_reliability.
 
 
     def set_roiImage(self):
-        x,y,w,h = self.roi
-        self.roi_img = self.frame[y:y+h, x:x+w]
+        self.x, self.y, self.width, self.height = self.roi
+        self.roi_img = self.frame[self.y : self.y + self.height, self.x : self.x + self.width]
         self.h = np.zeros((self.roi_img.shape[0], self.roi_img.shape[1]))
         self.I = np.zeros_like(self.h)
 
@@ -136,9 +131,9 @@ class CSRT():
             
                 self.mu_i *= self.beta
             self.h_cap[channel_index] = h_cap
-        print("h_cap for feature channels ", self.h_cap)
-        print("length h_cap", len(self.h_cap))
-        print("Lengths of h_cap", len(h_cap[0]), len(h_cap[1]))
+        # print("h_cap for feature channels ", self.h_cap)
+        # print("length h_cap", len(self.h_cap))
+        # print("Lengths of h_cap", len(h_cap[0]), len(h_cap[1]))
 
 
     def calculate_g_cap_and_channel_weights(self):
@@ -167,19 +162,36 @@ class CSRT():
             sum += self.channel_weights[channel_index]
         for channel_index in range(len(self.features)):
             self.channel_weights[channel_index] /= sum
-        print("channel_weights", self.channel_weights)
-        print("G_cap", self.G_cap)
+        # print("channel_weights", self.channel_weights)
+        # print("G_cap", self.G_cap)
 
         if self.debug:
             print("roi", self.roi)
             print('G shape', self.features[0].shape)
 
-def calculate_final_g_cap(self):
-    for channel_index in range(len(self.features)):
-        self.G_res += self.G_cap[channel_index] * self.channel_weights[channel_index]
-    return self.G_res
+    def calculate_final_g_cap(self):
+        for channel_index in range(len(self.features)):
+            self.G_res += self.G_cap[channel_index] * self.channel_weights[channel_index]
+        return self.G_res
 
-def apply_csrt(self):
-    self.p = self.get_new_roi()
-    # print(self.p)
-    self.channel_reliability()
+    def draw_bbox(self):
+        self.G_res = self.G_cap[0] * self.channel_weights[0]
+        for channel_index in range(1, len(self.features)):
+            self.G_res += self.G_cap[channel_index] * self.channel_weights[channel_index]
+        self.G_res = (self.G_res - self.G_res.min()) / (self.G_res.max() - self.G_res.min())
+        max_value = np.max(self.G_res)
+        max_pos = np.where(self.G_res == max_value)
+        dy = int(np.mean(max_pos[0]) - self.G_res.shape[0] / 2)
+        dx = int(np.mean(max_pos[1]) - self.G_res.shape[1] / 2)
+        self.p = [self.x + dx, self.y + dy, self.x + dx + self.width, self.y + dy + self.height]
+        print(self.p[0])
+        print(self.p[1])
+        print(self.p[2])
+        print(self.p[3])
+        cv2.rectangle(self.frame, (self.p[0], self.p[1]), (self.p[2], self.p[3]), (0, 255, 0), 2)
+        cv2.imshow("frame", self.frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def apply_csrt(self):
+        pass
