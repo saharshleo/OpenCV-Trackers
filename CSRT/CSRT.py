@@ -143,6 +143,10 @@ class CSRT():
             G = np.fft.ifft2(res)
             G = (G - G.min()) / (G.max() - G.min())
             self.G_cap[channel_index] = G
+            print("In calc", self.G_cap)
+            print("res", res)
+            print("f_hat", f_hat)
+            print("self.h_cap", self.h_cap)
 
             max_value = np.max(G)
             G_nms = []
@@ -169,29 +173,38 @@ class CSRT():
             print("roi", self.roi)
             print('G shape', self.features[0].shape)
 
-    def calculate_final_g_cap(self):
-        for channel_index in range(len(self.features)):
-            self.G_res += self.G_cap[channel_index] * self.channel_weights[channel_index]
-        return self.G_res
+    # def calculate_final_g_cap(self):
+    #     for channel_index in range(len(self.features)):
+    #         self.G_res += self.G_cap[channel_index] * self.channel_weights[channel_index]
+    #     return self.G_res
 
     def draw_bbox(self):
         self.G_res = self.G_cap[0] * self.channel_weights[0]
+        print("self.G_res before", self.G_res)
+        print("self.G_cap", self.G_cap)
+        print("channel w", self.channel_weights)
         for channel_index in range(1, len(self.features)):
             self.G_res += self.G_cap[channel_index] * self.channel_weights[channel_index]
-        self.G_res = (self.G_res - self.G_res.min()) / (self.G_res.max() - self.G_res.min())
+        if (self.G_res.max() - self.G_res.min() != 0):
+            self.G_res = (self.G_res - self.G_res.min()) / (self.G_res.max() - self.G_res.min())
         max_value = np.max(self.G_res)
         max_pos = np.where(self.G_res == max_value)
+        print("max_pos", max_pos)
+        print("self.G_res", self.G_res)
+        print("max_value", max_value)
         dy = int(np.mean(max_pos[0]) - self.G_res.shape[0] / 2)
         dx = int(np.mean(max_pos[1]) - self.G_res.shape[1] / 2)
         self.p = [self.x + dx, self.y + dy, self.x + dx + self.width, self.y + dy + self.height]
-        print(self.p[0])
-        print(self.p[1])
-        print(self.p[2])
-        print(self.p[3])
+        self.p = [int(k) for k in self.p]
+        # print(self.p[0])
+        # print(self.p[1])
+        # print(self.p[2])
+        # print(self.p[3])
         cv2.rectangle(self.frame, (self.p[0], self.p[1]), (self.p[2], self.p[3]), (0, 255, 0), 2)
         cv2.imshow("frame", self.frame)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        cv2.waitKey(100)
+        # cv2.destroyAllWindows()
+        return self.p
 
     def apply_csrt(self):
         pass
