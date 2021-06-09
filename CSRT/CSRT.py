@@ -1,6 +1,9 @@
+from types import DynamicClassAttribute
 import cv2
 import HOG_features as hogfeat
 import numpy as np
+from colorname import *
+from skimage.feature.peak import peak_local_max
 
 
 def get_gaussian_map(roi, sigma):
@@ -19,9 +22,12 @@ def get_gaussian_map(roi, sigma):
     dist = (np.square(xx - center_x) + np.square(yy - center_y)) / (2 * sigma)
         
     response = np.exp(-dist)
-    response = (response - response.min()) / (response.max() - response.min())
+    labels = (response - response.min()) / (response.max() - response.min())
+
+    # labels = np.roll(labels, -int(np.floor(w / 2)), axis=1)
+    # labels = np.roll(labels,-int(np.floor(h/2)),axis=0)
         
-    return response
+    return labels
 
 
 def cap_func(element):
@@ -41,28 +47,129 @@ class CSRT():
         if self.debug:
             cv2.imshow("Gaussian", self.g)
         
-        self.features = [0] * num_features
-        self.h_cap = [0] * num_features # Will contain h_cap values for all channels in sequential order
-        self.p = [] # This variable will store position of object in each frame.
-        self.channel_weights = [0] * num_features # Will store channel weights for all channels.
-        self.G_cap = [0] * num_features # Will store individual G_cap/g_tilda values for channels.
+        # self.features = [0] * num_features
+        # self.h_cap = [0] * num_features # Will contain h_cap values for all channels in sequential order
+        # self.p = [] # This variable will store position of object in each frame.
+        # self.channel_weights = [0] * num_features # Will store channel weights for all channels.
+        # self.G_cap = [0] * num_features # Will store individual G_cap/g_tilda values for channels.
         # self.G_res = 0 # Will store resultant G_cap after using channel_reliability.
+
+    def cos_window(self,sz):
+        """
+        width, height = sz
+        j = np.arange(0, width)
+        i = np.arange(0, height)
+        J, I = np.meshgrid(j, i)
+        cos_window = np.sin(np.pi * J / width) * np.sin(np.pi * I / height)
+        """
+
+        cos_window = np.hanning(int(sz[1]))[:, np.newaxis].dot(np.hanning(int(sz[0]))[np.newaxis, :])
+        cos_window = cos_window.T
+        cv2.imshow('cosine wndow',cos_window)
+        return cos_window
+
+
+    def init(self):
+        self.set_roiImage()
+        coswindow = self.cos_window(self.roi_img.shape)
+        print('roi image',self.roi_img.shape)
+        features = self.generate_features(8,4)
+        features = features*coswindow[:,:,None]
+        self.get_spatial_reliability_map()
+        self.h = self.get_csrt_filter(features)
+        response = np.fft.fft2(features)* (np.fft.fft2(self.h))
+        G = np.real(np.fft.ifft2(response))
+
+        
+        channel_weights = np.max(G.reshape(G.shape[0]*G.shape[1],-1),axis=0)
+        self.channel_weights = channel_weights/np.sum(channel_weights)
+
+        G = np.sum(G * self.channel_weights[None,None,:],axis = 2)
+        
+        G = (G - G.min()) / (G.max() - G.min())
+        cv2.imshow('G',G)
+        max_value = np.max(G)
+        max_pos = np.where(G == max_value)
+        dy = int(np.mean(max_pos[0]) - G.shape[0] / 2)
+        dx = int(np.mean(max_pos[1]) - G.shape[1] / 2)
+        print(dx,dy)
+
+    def get_new_roi(self,frame):
+        self.frame = frame
+        self.set_roiImage()
+        coswindow = self.cos_window(self.roi_img.shape)
+        features = self.generate_features(8,4)
+        features = features*coswindow[:,:,None]
+
+        response = np.fft.fft2(features)* (np.fft.fft2(self.h))
+        response = np.real(np.fft.ifft2(response))
+        G = np.sum(response * self.channel_weights[None,None,:],axis = 2)
+        G = (G - G.min()) / (G.max() - G.min())
+        self.g = G
+        max_value = np.max(G)
+        max_pos = np.where(G == max_value)
+        dy = int(np.mean(max_pos[0]) - G.shape[0] / 2)
+        dx = int(np.mean(max_pos[1]) - G.shape[1] / 2)
+        print(dx,dy)
+
+        self.channel_det = np.ones(response.shape[2])
+
+        for i in range(response.shape[2]):
+            norm_img = response[:,:,i] - response[:,:,i].min() / response[:,:,i].max() - response[:,:,i].min()
+            peak_locs = peak_local_max(norm_img,min_distance=5)
+            if len(peak_locs)<2:
+                    continue
+            vals=reversed(sorted(norm_img[peak_locs[:,0],peak_locs[:,1]]))
+            second_max_val=None
+            max_val=None
+            for index,val in enumerate(vals):
+                if index==0:
+                    max_val=val
+                elif index==1:
+                    second_max_val=val
+                else:
+                    break
+            self.channel_det[i] = max(1- (second_max_val / (max_val+ 1e-10)), 0.5)
+        x,y,w,h = self.roi
+        self.roi = (x+dx, y+dy, w, h)
+        return self.roi
+
+    def update(self):
+        coswindow = self.cos_window(self.roi_img.shape)
+        features = self.generate_features(8,4)
+        features = features*coswindow[:,:,None]
+        self.get_spatial_reliability_map()
+        h = self.get_csrt_filter(features)
+
+
+        response = np.fft.fft2(features)* (np.fft.fft2(self.h))
+        G = np.real(np.fft.ifft2(response))
+
+        channel_weights = np.max(G.reshape(G.shape[0]*G.shape[1],-1),axis=0)
+        channel_weights = channel_weights*self.channel_det
+        channel_weights = channel_weights/np.sum(channel_weights)
+
+        self.h = (1-self.n)*self.h + self.n*h
+        self.channel_weights = (1-self.n)*self.channel_weights + self.n*channel_weights
+        self.channel_weights = self.channel_weights/np.sum(self.channel_weights)
+
 
 
     def set_roiImage(self):
         self.x, self.y, self.width, self.height = self.roi
         self.roi_img = self.frame[self.y : self.y + self.height, self.x : self.x + self.width]
-        self.h = np.zeros((self.roi_img.shape[0], self.roi_img.shape[1]))
-        self.I = np.zeros_like(self.h)
 
 
     def generate_features(self, des_orientations, des_pixels_per_cell):
-        for i in range(len(self.features)):
-            self.f = hogfeat.get_hog_features(self.roi_img, des_orientations + i, des_pixels_per_cell + i)
-            self.features[i] = self.f
-      
-        if self.debug:
-            cv2.imshow('hog_image', self.features[0])
+        # for i in range(len(self.features)):
+        #     self.f = hogfeat.get_hog_features(self.roi_img, des_orientations + i, des_pixels_per_cell + i)
+        #     self.features[i] = self.f
+
+        # if self.debug:
+        #     cv2.imshow('hog_image', self.features[0])
+        
+        features = extract_cn_feature_byw2c(self.roi_img)
+        return features
 
 
     def get_spatial_reliability_map(self):
@@ -90,121 +197,40 @@ class CSRT():
         indice_zero = np.where(self.m == 0)
         self.m[indice_one] = 0
         self.m[indice_zero] = 1
+        
 
-
-    def initialize_fgh(self):
-        f_hat = cap_func(self.features[0])
+    def get_csrt_filter(self,features):
+        
+        f_hat = cap_func(features)
+        f_hat_conjugate = np.conjugate(f_hat)
         g_hat = cap_func(self.g)
-        # self.h = (f_hat * np.conjugate(g_hat)) / (f_hat * np.conjugate(f_hat) + self.λ)
-        self.h = self.g
+        g_hat_conjugate = np.conjugate(g_hat)
+
+        h = (f_hat * np.conjugate(g_hat)[:,:,None]) / (f_hat * np.conjugate(f_hat) + self.λ)
+
+        self.D = h.shape[0] * h.shape[1]
+
+        self.mu_i = self.mu
+        I_hat = np.zeros_like(h)
+
+        for i in range(4):
+            hm = h * self.m[:,:,None]
+            hm_hat = cap_func(hm)
+
+            # Eqn 12
+            hc = (f_hat * g_hat_conjugate[:,:,None] + (self.mu * hm_hat - I_hat)) / (f_hat_conjugate * f_hat + self.mu_i)
         
-
-    def update_H(self):
-        # self.initialize_fgh()
+            # Eqn 13
+            h = (self.m[:,:,None] * np.fft.ifft((I_hat + self.mu * hc))) / (self.λ / (2 * self.D) + self.mu_i)
         
-        for channel_index in range(len(self.features)):
-            f_hat = cap_func(self.features[channel_index])
-            f_hat_conjugate = np.conjugate(f_hat)
+            hc_cap = cap_func(hc)
+            h_cap = cap_func(h)
+            # Eqn 11
+            I_hat = I_hat + self.mu * (hc_cap - h_cap)
         
-            g_hat = cap_func(self.g)
-            g_hat_conjugate = np.conjugate(g_hat)
-
-            self.D = self.h.shape[0] * self.h.shape[1]
-
-            self.mu_i = self.mu
-            I_hat = cap_func(self.I)
-
-            for i in range(4):
-                self.hm = self.h * self.m
-                hm_hat = cap_func(self.hm)
-
-                # Eqn 12
-                self.hc = (f_hat * g_hat_conjugate + (self.mu * hm_hat - I_hat)) / (f_hat_conjugate * f_hat + self.mu_i)
-            
-                # Eqn 13
-                self.h = (self.m * np.fft.ifft((I_hat + self.mu * self.hc))) / (self.λ / (2 * self.D) + self.mu_i)
-            
-                hc_cap = cap_func(self.hc)
-                h_cap = cap_func(self.h)
-                # Eqn 11
-                I_hat = I_hat + self.mu * (hc_cap - h_cap)
-            
-                self.mu_i *= self.beta
-            self.h_cap[channel_index] = h_cap
-        # print("h_cap for feature channels ", self.h_cap)
-        # print("length h_cap", len(self.h_cap))
-        # print("Lengths of h_cap", len(h_cap[0]), len(h_cap[1]))
+            self.mu_i *= self.beta
+        
+        return h
 
 
-    def calculate_g_cap_and_channel_weights(self):
-        for channel_index in range(len(self.features)):
-            f_hat = cap_func(self.features[channel_index])
-            res = f_hat * cap_func(self.h_cap[channel_index])
-            G = np.fft.ifft2(res)
-            G = (G - G.min()) / (G.max() - G.min())
-            self.G_cap[channel_index] = G
-            print("In calc", self.G_cap)
-            print("res", res)
-            print("f_hat", f_hat)
-            print("self.h_cap", self.h_cap)
 
-            max_value = np.max(G)
-            G_nms = []
-            for i in range(1, G.shape[0] - 1):
-                for j in range(1, G.shape[1] - 1):
-                    G_nms.append(np.max(G[i - 1 : i + 2, j - 1 : j + 2]))
-            pd_max1_index = G_nms.index(max(G_nms))
-            self.channel_weights[channel_index] = G_nms[pd_max1_index]
-            G_nms.pop(pd_max1_index)
-            self.channel_weights[channel_index] /= max(G_nms)
-            self.channel_weights[channel_index] = 1 / self.channel_weights[channel_index]
-            self.channel_weights[channel_index] = 1 - self.channel_weights[channel_index]
-            self.channel_weights[channel_index] = max(0.5, self.channel_weights[channel_index])
-            self.channel_weights[channel_index] *= max_value
-        sum = 0
-        for channel_index in range(len(self.features)):
-            sum += self.channel_weights[channel_index]
-        for channel_index in range(len(self.features)):
-            self.channel_weights[channel_index] /= sum
-        # print("channel_weights", self.channel_weights)
-        # print("G_cap", self.G_cap)
-
-        if self.debug:
-            print("roi", self.roi)
-            print('G shape', self.features[0].shape)
-
-    # def calculate_final_g_cap(self):
-    #     for channel_index in range(len(self.features)):
-    #         self.G_res += self.G_cap[channel_index] * self.channel_weights[channel_index]
-    #     return self.G_res
-
-    def draw_bbox(self):
-        self.G_res = self.G_cap[0] * self.channel_weights[0]
-        print("self.G_res before", self.G_res)
-        print("self.G_cap", self.G_cap)
-        print("channel w", self.channel_weights)
-        for channel_index in range(1, len(self.features)):
-            self.G_res += self.G_cap[channel_index] * self.channel_weights[channel_index]
-        if (self.G_res.max() - self.G_res.min() != 0):
-            self.G_res = (self.G_res - self.G_res.min()) / (self.G_res.max() - self.G_res.min())
-        max_value = np.max(self.G_res)
-        max_pos = np.where(self.G_res == max_value)
-        print("max_pos", max_pos)
-        print("self.G_res", self.G_res)
-        print("max_value", max_value)
-        dy = int(np.mean(max_pos[0]) - self.G_res.shape[0] / 2)
-        dx = int(np.mean(max_pos[1]) - self.G_res.shape[1] / 2)
-        self.p = [self.x + dx, self.y + dy, self.x + dx + self.width, self.y + dy + self.height]
-        self.p = [int(k) for k in self.p]
-        # print(self.p[0])
-        # print(self.p[1])
-        # print(self.p[2])
-        # print(self.p[3])
-        cv2.rectangle(self.frame, (self.p[0], self.p[1]), (self.p[2], self.p[3]), (0, 255, 0), 2)
-        cv2.imshow("frame", self.frame)
-        cv2.waitKey(100)
-        # cv2.destroyAllWindows()
-        return self.p
-
-    def apply_csrt(self):
-        pass

@@ -123,35 +123,34 @@ def extract_cn_feature_byw2c(patch):
     index_im = ( r//8 + 32 * g//8 + 32 * 32 * b//8)
     h, w = patch.shape[:2]
     w2c=numpy.array(w2c)
-    print(w2c.T.shape)
-    print(index_im.flatten(order='F').shape)
+  
     out=w2c.T[index_im.flatten(order='F')].reshape((h,w,w2c.shape[0]))
-    print(out.shape)
+
     out=numpy.concatenate((gray,out),axis=2)
     return out
 
 
-if __name__ == '__main__':
-    img = cv2.imread('../assets/dog_test.png')
-    cv2.imshow('image',img)
-    roi = cv2.selectROI('roi selector',img)
-    x,y,w,h = roi
+# if __name__ == '__main__':
+#     img = cv2.imread('../assets/dog_test.png')
+#     cv2.imshow('image',img)
+#     roi = cv2.selectROI('roi selector',img)
+#     x,y,w,h = roi
 
-    roi_img = img[y:y+h,x:x+w]
+#     roi_img = img[y:y+h,x:x+w]
 
-    # print('image dimensions', img.shape)
-    # result = label_colors(img)
-    # poster = posterize(img)
-    # print('result',result)
-    # print('poster',poster.shape,type(poster))
+#     # print('image dimensions', img.shape)
+#     # result = label_colors(img)
+#     # poster = posterize(img)
+#     # print('result',result)
+#     # print('poster',poster.shape,type(poster))
 
-    result = extract_cn_feature_byw2c(roi_img)
+#     result = extract_cn_feature_byw2c(roi_img)
 
-    print('image dim',roi_img.shape)
-    print('result shape',result.shape)
+#     print('image dim',roi_img.shape)
+#     print('result shape',result.shape)
 
-    cv2.imshow('test',result[:,:,7])
+#     cv2.imshow('test',result[:,:,7])
 
-    # cv2.imshow('poster',poster)
-    if cv2.waitKey(0) == ord('x'):
-        cv2.destroyAllWindows()
+#     # cv2.imshow('poster',poster)
+#     if cv2.waitKey(0) == ord('x'):
+#         cv2.destroyAllWindows()
