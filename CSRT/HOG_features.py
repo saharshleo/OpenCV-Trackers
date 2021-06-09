@@ -6,4 +6,6 @@ def get_hog_features(image, des_orientations, des_pixels_per_cell):
     fd, hog_image = hog(image, orientations = des_orientations,
         pixels_per_cell = (des_pixels_per_cell, des_pixels_per_cell), cells_per_block=(2, 2),
         visualize=True,multichannel=True)
+
+    print('feature dim, hog_img dim, img_dim',fd.shape,hog_image.shape,image.shape)
     return hog_image

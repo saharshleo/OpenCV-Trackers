@@ -34,7 +34,7 @@ def cap_func(element):
 class CSRT():
 
     def __init__(self, frame, roi, num_features, debug = False):
-        self.debug = None
+        self.debug = True
 
         self.frame = frame
         self.roi = roi
@@ -67,7 +67,7 @@ class CSRT():
             self.features[i] = self.f
       
         if self.debug:
-            cv2.imshow('hog_image', self.features)
+            cv2.imshow('hog_image', self.features[0])
 
 
     def get_spatial_reliability_map(self):
@@ -160,8 +160,8 @@ class CSRT():
             self.channel_weights[channel_index] /= max(G_nms)
             self.channel_weights[channel_index] = 1 / self.channel_weights[channel_index]
             self.channel_weights[channel_index] = 1 - self.channel_weights[channel_index]
-            self.channel_weights[channel_index] *= max_value
             self.channel_weights[channel_index] = max(0.5, self.channel_weights[channel_index])
+            self.channel_weights[channel_index] *= max_value
         sum = 0
         for channel_index in range(len(self.features)):
             sum += self.channel_weights[channel_index]

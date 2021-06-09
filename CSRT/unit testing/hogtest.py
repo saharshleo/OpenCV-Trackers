@@ -4,7 +4,7 @@ from skimage.transform import resize
 from skimage import exposure
 import matplotlib.pyplot as plt
 
-img = cv2.imread('OpenCV-Trackers/assets/dog_test.png')
+img = cv2.imread('/home/aman/Desktop/SMORT/OpenCV-Trackers/assets/dog_test.png')
 roi = cv2.selectROI(img)
 x,y,w,h = roi
 roi_img = img[y:y+h,x:x+w]

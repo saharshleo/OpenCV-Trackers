@@ -3,11 +3,15 @@ import numpy as np
 import scipy.io as sio
 import cv2
 
-from im2c import* 
+# from im2c import* 
 
-w2c = sio.loadmat('Add the path of w2c.mat ',struct_as_record = False)
-w2c = w2c['w2c']
+# w2c = sio.loadmat('Add the path of w2c.mat ',struct_as_record = False)
+# w2c = w2c['w2c']
 
-img = cv2.imread('Add the path')
+# img = cv2.imread('Add the path')
 
-out = im2c(img,w2c,-1)
+# out = im2c(img,w2c,-1)
+
+arr = np.array([1,2,3,4,5])
+
+print(arr[arr > 2])
